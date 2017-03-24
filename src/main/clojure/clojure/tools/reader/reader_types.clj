@@ -350,6 +350,13 @@
    (IndexingPushbackReader.
     (to-pbr s-or-rdr buf-len) 1 1 true nil 0 file-name)))
 
+(defn ^Closeable indexing-string-push-back-reader
+  "Creates an IndexingPushbackReader  from a given string"
+  ([s]
+   (indexing-push-back-reader (string-push-back-reader s 1)))
+  ([^String s buf-len]
+   (indexing-push-back-reader (push-back-reader (string-reader s) buf-len))))
+
 (defn ^Closeable source-logging-push-back-reader
   "Creates a SourceLoggingPushbackReader from a given string or PushbackReader"
   ([s-or-rdr]
@@ -382,11 +389,15 @@
          (str s)
          (recur (read-char rdr) (.append s c)))))))
 
+(defn location-str [rdr]
+  (if (indexing-reader? rdr)
+    (str "On line " (get-line-number rdr) " at column: " (get-column-number rdr) ": ") ""))
+
 (defn reader-error
   "Throws an ExceptionInfo with the given message.
    If rdr is an IndexingReader, additional information about column and line number is provided"
   [rdr & msg]
-  (throw (ex-info (apply str msg)
+  (throw (ex-info (apply str (location-str rdr) msg)
                   (merge {:type :reader-exception}
                          (when (indexing-reader? rdr)
                            (merge
@@ -394,6 +405,19 @@
                              :column (get-column-number rdr)}
                             (when-let [file-name (get-file-name rdr)]
                               {:file file-name})))))))
+
+
+(defn throw-bad-token
+  "Throws an IllegalArgumentException with the given token and message."
+  [token & msg]
+  (throw (IllegalArgumentException. ^String (apply str "Error while decoding " token ": " msg))))
+
+
+(defn throw-bad-arg
+  "Throws an IllegalArgumentException with the given message.
+   If rdr is an IndexingReader, additional information about column and line number is provided"
+  [rdr & msg]
+  (throw (IllegalArgumentException. ^String (apply str (location-str rdr) msg))))
 
 (defn source-logging-reader?
   [rdr]

@@ -29,6 +29,7 @@
 ;; helpers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (declare ^:private read*
          macros dispatch-macros
          ^:dynamic *read-eval*
@@ -51,7 +52,7 @@
   "Read in a single logical token from the reader"
   [rdr initch]
   (if-not initch
-    (reader-error rdr "EOF while reading")
+    (reader-error rdr "Unexpected EOF while reading token start.")
     (loop [sb (StringBuilder.) ch initch]
       (if (or (whitespace? ch)
               (macro-terminating? ch)
@@ -69,7 +70,7 @@
     (if-let [dm (dispatch-macros ch)]
       (dm rdr ch opts pending-forms)
       (read-tagged (doto rdr (unread ch)) ch opts pending-forms)) ;; ctor reader is implemented as a tagged literal
-    (reader-error rdr "EOF while reading character")))
+    (reader-error rdr "Unexpected EOF while reading dispath character.")))
 
 (defn- read-unmatched-delimiter
   [rdr ch opts pending-forms]
@@ -86,13 +87,13 @@
       (if (identical? \" ch)
         (Pattern/compile (str sb))
         (if (nil? ch)
-          (reader-error rdr "EOF while reading regex")
+          (reader-error rdr (str "Unexpected EOF while reading regex: " sb "."))
           (do
             (.append sb ch )
             (when (identical? \\ ch)
               (let [ch (read-char rdr)]
                 (if (nil? ch)
-                  (reader-error rdr "EOF while reading regex"))
+                  (reader-error rdr (str "Unexpected EOF while reading regex: " sb ".")))
                 (.append sb ch)))
             (recur (read-char rdr))))))))
 
@@ -245,7 +246,7 @@
         map-count (count the-map)
         [end-line end-column] (ending-line-col-info rdr)]
     (when (odd? map-count)
-      (reader-error rdr "Map literal must contain an even number of forms"))
+      (reader-error rdr (str "Map literal must contain an even number of forms not " map-count " " the-map)))
     (with-meta
       (if (zero? map-count)
         {}
@@ -296,7 +297,7 @@
   (loop [sb (StringBuilder.)
          ch (read-char reader)]
     (case ch
-      nil (reader-error reader "EOF while reading string")
+      nil (reader-error reader (str "EOF while reading string:" sb))
       \\ (recur (doto sb (.append (escape-char sb reader)))
                 (read-char reader))
       \" (str sb)

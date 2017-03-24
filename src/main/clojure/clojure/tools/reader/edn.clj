@@ -11,8 +11,8 @@
   clojure.tools.reader.edn
   (:refer-clojure :exclude [read read-string char default-data-readers])
   (:require [clojure.tools.reader.reader-types :refer
-             [read-char reader-error unread peek-char indexing-reader?
-              get-line-number get-column-number get-file-name string-push-back-reader]]
+             [read-char reader-error throw-bad-arg throw-bad-token unread peek-char indexing-reader?
+              get-line-number get-column-number get-file-name indexing-string-push-back-reader]]
             [clojure.tools.reader.impl.utils :refer
              [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
             [clojure.tools.reader.impl.commons :refer :all]
@@ -42,11 +42,11 @@
   ([rdr initch validate-leading?]
      (cond
       (not initch)
-      (reader-error rdr "EOF while reading")
+        (reader-error rdr "EOF while reading the start of a new token.")
 
       (and validate-leading?
            (not-constituent? initch))
-      (reader-error rdr "Invalid leading character: " initch)
+        (reader-error rdr "Invalid leading character: " initch ".")
 
       :else
       (loop [sb (StringBuilder.)
@@ -56,7 +56,7 @@
                 (nil? ch))
           (str sb)
           (if (not-constituent? ch)
-            (reader-error rdr "Invalid constituent character: " ch)
+            (reader-error rdr "Invalid constituent character: "  ch " while reading " sb ".")
             (recur (doto sb (.append (read-char rdr))) (peek-char rdr))))))))
 
 (declare read-tagged)
@@ -68,51 +68,51 @@
       (dm rdr ch opts)
       (if-let [obj (read-tagged (doto rdr (unread ch)) ch opts)]
         obj
-        (reader-error rdr "No dispatch macro for " ch)))
-    (reader-error rdr "EOF while reading character")))
+        (reader-error rdr "No dispatch macro for " ch ".")))
+    (reader-error rdr "EOF while reading character dispatch character.")))
 
 (defn- read-unmatched-delimiter
   [rdr ch opts]
-  (reader-error rdr "Unmatched delimiter " ch))
+  (reader-error rdr "Unmatched delimiter " ch "."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; readers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- read-unicode-char
-  ([^String token ^long offset ^long length ^long base]
+(defn- decode-unicode-token
+  [^String token ^long offset ^long length ^long base]
    (let [l (+ offset length)]
      (when-not (== (count token) l)
-       (throw (IllegalArgumentException. (str "Invalid unicode character: \\" token))))
+       (throw-bad-token token (str "Invalid unicode character: Should be " l " long.")))
      (loop [i offset uc 0]
        (if (== i l)
          (char uc)
          (let [d (Character/digit (int (nth token i)) (int base))]
            (if (== d -1)
-             (throw (IllegalArgumentException. (str "Invalid digit: " (nth token i))))
+             (throw-bad-token token (str "Invalid digit: " (nth token i) " at character index " i))
              (recur (inc i) (long (+ d (* uc base))))))))))
 
-  ([rdr initch base length exact?]
+(defn- read-unicode-char [rdr initch base length exact?]
    (let [length (long length)
          base (long base)]
      (loop [i 1 uc (Character/digit (int initch) (int base))]
        (if (== uc -1)
-         (throw (IllegalArgumentException. (str "Invalid digit: " initch)))
+         (throw-bad-arg rdr (str "Invalid digit: " initch " while reading " i))
          (if-not (== i length)
            (let [ch (peek-char rdr)]
              (if (or (whitespace? ch)
                      (macros ch)
                      (nil? ch))
                (if exact?
-                 (throw (IllegalArgumentException.
-                         (str "Invalid character length: " i ", should be: " length)))
+                 (throw-bad-arg
+                         rdr (str "Invalid character length: " i ", should be: " length))
                  (char uc))
                (let [d (Character/digit (int ch) (int base))]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw (IllegalArgumentException. (str "Invalid digit: " ch)))
+                   (throw (IllegalArgumentException. (str "Invalid digit: " ch " while reading " i)))
                    (recur (inc i) (long (+ d (* uc base))))))))
-           (char uc)))))))
+           (char uc))))))
 
 (def ^:private ^:const upper-limit (int \uD7ff))
 (def ^:private ^:const lower-limit (int \uE000))
@@ -139,7 +139,7 @@
          (= token "return") \return
 
          (.startsWith token "u")
-         (let [c (read-unicode-char token 1 4 16)
+         (let [c (decode-unicode-token token 1 4 16)
                ic (int c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
@@ -149,26 +149,26 @@
          (.startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
-             (reader-error rdr "Invalid octal escape sequence length: " len)
-             (let [uc (read-unicode-char token 1 len 8)]
+             (reader-error rdr "Invalid octal escape sequence length: " len " in " token)
+             (let [uc (decode-unicode-token token 1 len 8)]
                (if (> (int uc) 0377)
-                 (reader-error rdr "Octal escape sequence must be in range [0, 377]")
+                 (reader-error rdr "Bad octal escape sequence in " token ". Value must be in range [0, 377]")
                  uc))))
 
          :else (reader-error rdr "Unsupported character: \\" token)))
       (reader-error rdr "EOF while reading character"))))
 
 (defn- ^PersistentVector read-delimited
-  [delim rdr opts]
+  [kind delim rdr opts]
   (let [first-line (when (indexing-reader? rdr)
                      (get-line-number rdr))
         delim (char delim)]
     (loop [a (transient [])]
       (let [ch (read-past whitespace? rdr)]
         (when-not ch
-          (reader-error rdr "EOF while reading"
+          (reader-error rdr "Unexpected EOF while reading " kind
                         (if first-line
-                          (str ", starting at line" first-line))))
+                          (str ", starting at line " first-line "."))))
         (if (identical? delim (char ch))
           (persistent! a)
           (if-let [macrofn (macros ch)]
@@ -179,18 +179,18 @@
 
 (defn- read-list
   [rdr _ opts]
-  (let [the-list (read-delimited \) rdr opts)]
+  (let [the-list (read-delimited "list" \) rdr opts)]
     (if (empty? the-list)
       '()
       (clojure.lang.PersistentList/create the-list))))
 
 (defn- read-vector
   [rdr _ opts]
-  (read-delimited \] rdr opts))
+  (read-delimited "vector" \] rdr opts))
 
 (defn- read-map
   [rdr _ opts]
-  (let [l (to-array (read-delimited \} rdr opts))]
+  (let [l (to-array (read-delimited "map" \} rdr opts))]
     (when (== 1 (bit-and (alength l) 1))
       (reader-error rdr "Map literal must contain an even number of forms"))
     (RT/map l)))
@@ -232,7 +232,7 @@
   (loop [sb (StringBuilder.)
          ch (read-char reader)]
     (case ch
-      nil (reader-error reader "EOF while reading string")
+      nil (reader-error reader "EOF while reading string starting with " sb)
       \\ (recur (doto sb (.append (escape-char sb reader)))
                 (read-char reader))
       \" (str sb)
@@ -266,10 +266,10 @@
           (let [^String ns (s 0)
                 ^String name (s 1)]
             (if (identical? \: (nth token 0))
-              (reader-error reader "Invalid token: :" token) ;; no ::keyword in edn
+              (reader-error reader "Invalid symbol: :" token) ;; no ::keyword in edn
               (keyword ns name)))
-          (reader-error reader "Invalid token: :" token)))
-      (reader-error reader "Invalid token: :"))))
+          (reader-error reader "Invalid symbol: :" token)))
+      (reader-error reader "Invalid symbol: :"))))
 
 (defn- wrapping-reader
   [sym]
@@ -280,15 +280,15 @@
   [rdr _ opts]
   (let [m (desugar-meta (read rdr true nil opts))]
     (when-not (map? m)
-      (reader-error rdr "Metadata must be Symbol, Keyword, String or Map"))
+      (reader-error rdr "Metadata must be Symbol, Keyword, String or Map, not " (class m)))
     (let [o (read rdr true nil opts)]
       (if (instance? IMeta o)
         (with-meta o (merge (meta o) m))
-        (reader-error rdr "Metadata can only be applied to IMetas")))))
+        (reader-error rdr "Metadata cannot be applied to " (class o) ". Metadata can only be applied to IMetas.")))))
 
 (defn- read-set
   [rdr _ opts]
-  (PersistentHashSet/createWithCheck (read-delimited \} rdr opts)))
+  (PersistentHashSet/createWithCheck (read-delimited "set" \} rdr opts)))
 
 (defn- read-discard
   [rdr _ opts]
@@ -301,7 +301,7 @@
     (if-let [ns (some-> token parse-symbol second')]
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
-          (let [items (read-delimited \} rdr opts)]
+          (let [items (read-delimited "namespaced map" \} rdr opts)]
             (when (odd? (count items))
               (reader-error rdr "Map literal must contain an even number of forms"))
             (let [keys (take-nth 2 items)
@@ -421,4 +421,4 @@
   ([s] (read-string {:eof nil} s))
   ([opts s]
      (when (and s (not (identical? s "")))
-       (read opts (string-push-back-reader s)))))
+       (read opts (indexing-string-push-back-reader s)))))
