@@ -237,7 +237,7 @@
   (loop [sb (StringBuilder.)
          ch (read-char reader)]
     (case ch
-      nil (reader-error reader "EOF while reading string starting with [" sb "].")
+      nil (reader-error reader "EOF while reading string starting with [\"" sb "].")
       \\ (recur (doto sb (.append (escape-char sb reader)))
                 (read-char reader))
       \" (str sb)
@@ -319,8 +319,8 @@
             (let [keys (take-nth 2 items)
                   vals (take-nth 2 (rest items))]
               (zipmap (namespace-keys (str ns) keys) vals)))
-          (reader-error rdr "Namespaced map must specify a map.")))
-        (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
+          (reader-error rdr "Namespaced map with namespace [" token "] does not specify a map.")))
+        (reader-error rdr "Invalid token used as namespace in namespaced map: [" token "]."))))
 
 (defn- macros [ch]
   (case ch
