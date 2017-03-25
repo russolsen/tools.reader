@@ -161,20 +161,20 @@
                ic (int c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (reader-error rdr "Invalid character constant: \\u" (Integer/toString ic 16))
+             (reader-error rdr "Invalid character constant: [\\u" (Integer/toString ic 16) "].")
              c))
 
          (.startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
-             (reader-error rdr "Invalid octal escape sequence length: " len)
+             (reader-error rdr "Invalid octal escape sequence [" token "]. Octal escape sequences cannot be longer than 3 digits.")
              (let [uc (read-unicode-char token 1 len 8)]
                (if (> (int uc) 0377)
-                 (reader-error rdr "Octal escape sequence must be in range [0, 377]")
+                 (reader-error rdr "Bad octal escape sequence [" token "]. Value must be in range [0, 377].")
                  uc))))
 
-         :else (reader-error rdr "Unsupported character: \\" token)))
-      (reader-error rdr "EOF while reading character"))))
+         :else (reader-error rdr "Unsupported character: [\\" token "].")))
+      (reader-error rdr "EOF while reading character."))))
 
 (defn ^:private starting-line-col-info [rdr]
   (when (indexing-reader? rdr)
@@ -283,21 +283,21 @@
       \f "\f"
       \u (let [ch (read-char rdr)]
            (if (== -1 (Character/digit (int ch) 16))
-             (reader-error rdr "Invalid unicode escape: \\u" ch)
+             (reader-error rdr "Invalid unicode escape: [\\u" ch "].")
              (read-unicode-char rdr ch 16 4 true)))
       (if (numeric? ch)
         (let [ch (read-unicode-char rdr ch 8 3 false)]
           (if (> (int ch) 0337)
-            (reader-error rdr "Octal escape sequence must be in range [0, 377]")
+            (reader-error rdr "Octal escape sequence must be in range [0, 377].")
             ch))
-        (reader-error rdr "Unsupported escape character: \\" ch)))))
+        (reader-error rdr "Unsupported escape character: [\\" ch "].")))))
 
 (defn- read-string*
   [reader _ opts pending-forms]
   (loop [sb (StringBuilder.)
          ch (read-char reader)]
     (case ch
-      nil (reader-error reader (str "EOF while reading string:" sb))
+      nil (reader-error reader (str "EOF while reading string [" sb "]."))
       \\ (recur (doto sb (.append (escape-char sb reader)))
                 (read-char reader))
       \" (str sb)
@@ -329,7 +329,7 @@
                       :column column
                       :end-line end-line
                       :end-column end-column})))))
-            (reader-error rdr "Invalid token: " token))))))
+            (reader-error rdr "Invalid symbol [" token "]."))))))
 
 (def ^:dynamic *alias-map*
   "Map from ns alias to ns, if non-nil, it will be used to resolve read-time
@@ -357,11 +357,11 @@
                 (let [ns (resolve-ns (symbol (subs ns 1)))]
                   (if ns
                     (keyword (str ns) name)
-                    (reader-error reader "Invalid token: :" token)))
+                    (reader-error reader "Invalid keyword [:" token "].")))
                 (keyword (str *ns*) (subs name 1)))
               (keyword ns name)))
-          (reader-error reader "Invalid token: :" token)))
-      (reader-error reader "Invalid token: :"))))
+          (reader-error reader "Invalid keyword [:" token "].")))
+      (reader-error reader "A single colon [:] is not a valid keyword."))))
 
 (defn- wrapping-reader
   "Returns a function which wraps a reader in a call to sym"
@@ -376,7 +376,10 @@
     (let [[line column] (starting-line-col-info rdr)
           m (desugar-meta (read* rdr true nil opts pending-forms))]
       (when-not (map? m)
-        (reader-error rdr "Metadata must be Symbol, Keyword, String or Map"))
+        (reader-error rdr
+                      "Metadata must be Symbol, Keyword, String or Map, not an instance of ["
+                      (class m)
+                      "]."))
       (let [o (read* rdr true nil opts pending-forms)]
         (if (instance? IMeta o)
           (let [m (if (and line (seq? o))
@@ -385,7 +388,10 @@
             (if (instance? IObj o)
               (with-meta o (merge (meta o) m))
               (reset-meta! o m)))
-          (reader-error rdr "Metadata can only be applied to IMetas"))))))
+          (reader-error rdr
+                        "Metadata cannot be applied to instances of ["
+                        (class o)
+                        "]. Metatdata only be applied to IMetas."))))))
 
 (defn- read-set
   [rdr _ opts pending-forms]
@@ -416,26 +422,26 @@
   [rdr feature opts]
   (if (keyword? feature)
     (or (= :default feature) (contains? (get opts :features) feature))
-    (reader-error rdr (str "Feature should be a keyword: " feature))))
+    (reader-error rdr "The value supplied [" feature "] is not a keyword. Features must be keywords.")))
 
 (defn- check-eof-error
   [form rdr ^long first-line]
   (when (identical? form READ_EOF)
     (if (< first-line 0)
-      (reader-error rdr "EOF while reading")
-      (reader-error rdr "EOF while reading, starting at line " first-line))))
+      (reader-error rdr "Unexpected EOF while reading")
+      (reader-error rdr "Unexpected EOF while reading, starting at line " first-line))))
 
 (defn- check-reserved-features
   [rdr form]
   (when (get RESERVED_FEATURES form)
-    (reader-error rdr (str "Feature name " form " is reserved"))))
+    (reader-error rdr (str "Feature name " form " is reserved."))))
 
 (defn- check-invalid-read-cond
   [form rdr ^long first-line]
   (when (identical? form READ_FINISHED)
     (if (< first-line 0)
-      (reader-error rdr "read-cond requires an even number of forms")
-      (reader-error rdr (str "read-cond starting on line " first-line " requires an even number of forms")))))
+      (reader-error rdr "read-cond requires an even number of forms.")
+      (reader-error rdr "read-cond starting on line " first-line " requires an even number of forms."))))
 
 (defn- read-suppress
   "Read next form and suppress. Return nil or READ_FINISHED."
@@ -493,22 +499,25 @@
           (do
             (.addAll ^List pending-forms 0 ^List result)
             rdr)
-          (reader-error rdr "Spliced form list in read-cond-splicing must implement java.util.List."))
+          (reader-error rdr "The value supplied, of class ["
+                            (class result)
+                            "], does not implement java.util.List."
+                           " Spliced form list in read-cond-splicing must implement java.util.List."))
         result))))
 
 (defn- read-cond
   [rdr _ opts pending-forms]
   (when (not (and opts (#{:allow :preserve} (:read-cond opts))))
-    (throw (RuntimeException. "Conditional read not allowed")))
+    (throw (RuntimeException. "Conditional read not allowed.")))
   (if-let [ch (read-char rdr)]
     (let [splicing (= ch \@)
           ch (if splicing (read-char rdr) ch)]
       (when splicing
         (when-not *read-delim*
-          (reader-error rdr "cond-splice not in list")))
+          (reader-error rdr "cond-splice not in list.")))
       (if-let [ch (if (whitespace? ch) (read-past whitespace? rdr) ch)]
         (if (not= ch \()
-          (throw (RuntimeException. "read-cond body must be a list"))
+          (throw (RuntimeException. "read-cond body must be a list."))
           (binding [*suppress-read* (or *suppress-read* (= :preserve (:read-cond opts)))]
             (if *suppress-read*
               (reader-conditional (read-list rdr ch opts pending-forms) splicing)
@@ -527,7 +536,7 @@
 (defn- read-fn
   [rdr _ opts pending-forms]
   (if (thread-bound? #'arg-env)
-    (throw (IllegalStateException. "Nested #()s are not allowed")))
+    (throw (IllegalStateException. "Nested #()s are not allowed.")))
   (binding [arg-env (sorted-map)]
     (let [form (read* (doto rdr (unread \()) true nil opts pending-forms) ;; this sets bindings
           rargs (rseq arg-env)
@@ -554,7 +563,7 @@
       (let [g (garg n)]
         (set! arg-env (assoc arg-env n g))
         g))
-    (throw (IllegalStateException. "Arg literal not in #()")))) ;; should never hit this
+    (throw (IllegalStateException. "Arg literal not in #().")))) ;; should never hit this
 
 (declare read-symbol)
 
@@ -576,14 +585,14 @@
        :else
        (let [n (read* rdr true nil opts pending-forms)]
          (if-not (integer? n)
-           (throw (IllegalStateException. "Arg literal must be %, %& or %integer"))
+           (throw (IllegalStateException. "Arg literal must be %, %& or %integer."))
            (register-arg n)))))))
 
 (defn- read-eval
   "Evaluate a reader literal"
   [rdr _ opts pending-forms]
   (when-not *read-eval*
-    (reader-error rdr "#= not allowed when *read-eval* is false"))
+    (reader-error rdr "#= not allowed when *read-eval* is false."))
   (eval (read* rdr true nil opts pending-forms)))
 
 (def ^:private ^:dynamic gensym-env nil)
@@ -631,7 +640,7 @@
 
 (defn- register-gensym [sym]
   (if-not gensym-env
-    (throw (IllegalStateException. "Gensym literal not in syntax-quote")))
+    (throw (IllegalStateException. "Gensym literal not in syntax-quote.")))
   (or (get gensym-env sym)
       (let [gs (symbol (str (subs (name sym)
                                   0 (dec (count (name sym))))
@@ -708,7 +717,7 @@
                :else (resolve-symbol form)))))
 
     (unquote? form) (second form)
-    (unquote-splicing? form) (throw (IllegalStateException. "unquote-splice not in list"))
+    (unquote-splicing? form) (throw (IllegalStateException. "unquote-splice not in list."))
 
     (coll? form)
     (cond
@@ -723,7 +732,7 @@
          (syntax-quote-coll nil seq)
          '(clojure.core/list)))
 
-     :else (throw (UnsupportedOperationException. "Unknown Collection type")))
+     :else (throw (UnsupportedOperationException. "Unknown Collection type.")))
 
     (or (keyword? form)
         (number? form)
@@ -760,7 +769,7 @@
         (if (identical? ch \{)
           (let [items (read-delimited \} rdr opts pending-forms)]
             (when (odd? (count items))
-              (reader-error rdr "Map literal must contain an even number of forms"))
+              (reader-error rdr "Map literal must contain an even number of forms."))
             (let [keys (take-nth 2 items)
                   vals (take-nth 2 (rest items))]
               (zipmap (namespace-keys (str ns) keys) vals)))
@@ -805,7 +814,7 @@
 
 (defn- read-ctor [rdr class-name opts pending-forms]
   (when-not *read-eval*
-    (reader-error "Record construction syntax can only be used when *read-eval* == true"))
+    (reader-error "Record construction syntax can only be used when *read-eval* == true."))
   (let [class (Class/forName (name class-name) false (RT/baseLoader))
         ch (read-past whitespace? rdr)] ;; differs from clojure
     (if-let [[end-ch form] (case ch
@@ -820,8 +829,8 @@
           :short
           (loop [i 0]
             (if (>= i ctors-num)
-              (reader-error rdr "Unexpected number of constructor arguments to " (str class)
-                            ": got" numargs)
+              (reader-error rdr "Unexpected number of constructor arguments to [" (.getName class)
+                            ": got" numargs ".")
               (if (== (count (.getParameterTypes ^Constructor (aget all-ctors i)))
                       numargs)
                 (Reflector/invokeConstructor class entries)
@@ -831,7 +840,7 @@
             (loop [s (keys vals)]
               (if s
                 (if-not (keyword? (first s))
-                  (reader-error rdr "Unreadable ctor form: key must be of type clojure.lang.Keyword")
+                  (reader-error rdr "Unreadable ctor form: key must be of type clojure.lang.Keyword.")
                   (recur (next s)))))
             (Reflector/invokeStaticMethod class "create" (object-array [vals])))))
       (reader-error rdr "Invalid reader constructor form"))))
@@ -839,7 +848,7 @@
 (defn- read-tagged [rdr initch opts pending-forms]
   (let [tag (read* rdr true nil opts pending-forms)]
     (if-not (symbol? tag)
-      (reader-error rdr "Reader tag must be a symbol"))
+      (reader-error rdr "Reader tag must be a symbol."))
     (if *suppress-read*
       (tagged-literal tag (read* rdr true nil opts pending-forms))
       (if-let [f (or (*data-readers* tag)
@@ -849,7 +858,7 @@
           (read-ctor rdr tag opts pending-forms)
           (if-let [f *default-data-reader-fn*]
             (f tag (read* rdr true nil opts pending-forms))
-            (reader-error rdr "No reader function for tag " (name tag))))))))
+            (reader-error rdr "No reader function for tag [" (name tag) "].")))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
