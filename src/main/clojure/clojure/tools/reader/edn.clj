@@ -37,16 +37,16 @@
       (identical? \~ ch)))
 
 (defn- ^String read-token
-  ([rdr initch]
-     (read-token rdr initch true))
-  ([rdr initch validate-leading?]
+  ([rdr initch kind]
+     (read-token rdr initch kind true))
+  ([rdr initch kind validate-leading?]
      (cond
       (not initch)
-        (reader-error rdr "EOF while reading the start of a new token.")
+        (reader-error rdr "Unexpected EOF while reading the start of " kind ".")
 
       (and validate-leading?
            (not-constituent? initch))
-        (reader-error rdr "Invalid leading character: " initch ".")
+        (reader-error rdr "Invalid leading character at the start of a " kind " [" initch "].")
 
       :else
       (loop [sb (StringBuilder.)
@@ -56,7 +56,7 @@
                 (nil? ch))
           (str sb)
           (if (not-constituent? ch)
-            (reader-error rdr "Invalid constituent character: "  ch " while reading " sb ".")
+            (reader-error rdr "Invalid character ["  ch "] in " kind " starting with [" sb "].")
             (recur (doto sb (.append (read-char rdr))) (peek-char rdr))))))))
 
 (declare read-tagged)
@@ -68,12 +68,12 @@
       (dm rdr ch opts)
       (if-let [obj (read-tagged (doto rdr (unread ch)) ch opts)]
         obj
-        (reader-error rdr "No dispatch macro for " ch ".")))
-    (reader-error rdr "EOF while reading character dispatch character.")))
+        (reader-error rdr "No dispatch macro for [" ch "].")))
+    (reader-error rdr "Unexpected EOF while reading dispatch character.")))
 
 (defn- read-unmatched-delimiter
   [rdr ch opts]
-  (reader-error rdr "Unmatched delimiter " ch "."))
+  (reader-error rdr "Unmatched delimiter [" ch "]."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; readers
@@ -83,13 +83,13 @@
   [^String token ^long offset ^long length ^long base]
    (let [l (+ offset length)]
      (when-not (== (count token) l)
-       (throw-bad-token token (str "Invalid unicode character: Should be " l " long.")))
+       (throw-bad-token token (str "Invalid unicode character: Unicode characters should be " l " characters long.")))
      (loop [i offset uc 0]
        (if (== i l)
          (char uc)
          (let [d (Character/digit (int (nth token i)) (int base))]
            (if (== d -1)
-             (throw-bad-token token (str "Invalid digit: " (nth token i) " at character index " i))
+             (throw-bad-token token (str "Invalid digit [" (nth token i) "] at character index " i))
              (recur (inc i) (long (+ d (* uc base))))))))))
 
 (defn- read-unicode-char [rdr initch base length exact?]
@@ -97,7 +97,7 @@
          base (long base)]
      (loop [i 1 uc (Character/digit (int initch) (int base))]
        (if (== uc -1)
-         (throw-bad-arg rdr (str "Invalid digit: " initch " while reading " i))
+         (throw-bad-arg rdr (str "Invalid digit [" initch "] while reading " i "."))
          (if-not (== i length)
            (let [ch (peek-char rdr)]
              (if (or (whitespace? ch)
@@ -105,12 +105,12 @@
                      (nil? ch))
                (if exact?
                  (throw-bad-arg
-                         rdr (str "Invalid character length: " i ", should be: " length))
+                         rdr (str "Invalid character length: " i ", should be: " length "."))
                  (char uc))
                (let [d (Character/digit (int ch) (int base))]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw (IllegalArgumentException. (str "Invalid digit: " ch " while reading " i)))
+                   (throw (IllegalArgumentException. (str "Invalid digit [" ch "] while reading " i ".")))
                    (recur (inc i) (long (+ d (* uc base))))))))
            (char uc))))))
 
@@ -125,7 +125,7 @@
                           (not-constituent? ch)
                           (whitespace? ch))
                     (str ch)
-                    (read-token rdr ch false))
+                    (read-token rdr ch "character literal" false))
             token-len (count token)]
         (cond
 
@@ -143,20 +143,20 @@
                ic (int c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (reader-error rdr "Invalid character constant: \\u" (Integer/toString ic 16))
+             (reader-error rdr "Invalid character constant: [\\u" (Integer/toString ic 16) "].")
              c))
 
          (.startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
-             (reader-error rdr "Invalid octal escape sequence length: " len " in " token)
+             (reader-error rdr "Invalid octal escape sequence length: " len " in [" token "].")
              (let [uc (decode-unicode-token token 1 len 8)]
                (if (> (int uc) 0377)
-                 (reader-error rdr "Bad octal escape sequence in " token ". Value must be in range [0, 377]")
+                 (reader-error rdr "Bad octal escape sequence [" token "]. Value must be in range [0, 377].")
                  uc))))
 
-         :else (reader-error rdr "Unsupported character: \\" token)))
-      (reader-error rdr "EOF while reading character"))))
+         :else (reader-error rdr "Unsupported character: [\\" token "].")))
+      (reader-error rdr "Unexpected EOF while reading character literal."))))
 
 (defn- ^PersistentVector read-delimited
   [kind delim rdr opts]
@@ -168,7 +168,8 @@
         (when-not ch
           (reader-error rdr "Unexpected EOF while reading " kind
                         (if first-line
-                          (str ", starting at line " first-line "."))))
+                          (str ", starting at line " first-line ".")
+                          ".")))
         (if (identical? delim (char ch))
           (persistent! a)
           (if-let [macrofn (macros ch)]
@@ -192,7 +193,11 @@
   [rdr _ opts]
   (let [l (to-array (read-delimited "map" \} rdr opts))]
     (when (== 1 (bit-and (alength l) 1))
-      (reader-error rdr "Map literal must contain an even number of forms"))
+      (let [key1 (first l)
+            msg1 (if (keyword? (first l)) (str "Starting with key [" key1 "] ") "")
+            msg2 "Map literals must contain an even number of forms. "
+            msg3 (str "The value supplied contains " (alength l) " forms.")]
+        (reader-error rdr msg1 msg2 msg3)))
     (RT/map l)))
 
 (defn- read-number
@@ -203,7 +208,7 @@
       (let [s (str sb)]
         (unread reader ch)
         (or (match-number s)
-            (reader-error reader "Invalid number format [" s "]")))
+            (reader-error reader "Invalid number [" s "].")))
       (recur (doto sb (.append ch)) (read-char reader)))))
 
 (defn- escape-char [sb rdr]
@@ -218,21 +223,21 @@
       \f "\f"
       \u (let [ch (read-char rdr)]
            (if (== -1 (Character/digit (int ch) 16))
-             (reader-error rdr "Invalid unicode escape: \\u" ch)
+             (reader-error rdr "Invalid unicode escape: [\\u" ch "].")
              (read-unicode-char rdr ch 16 4 true)))
       (if (numeric? ch)
         (let [ch (read-unicode-char rdr ch 8 3 false)]
           (if (> (int ch) 0337)
-            (reader-error rdr "Octal escape sequence must be in range [0, 377]")
+            (reader-error rdr "Octal escape sequence must be in range [0, 377].")
             ch))
-        (reader-error rdr "Unsupported escape character: \\" ch)))))
+        (reader-error rdr "Unsupported escape character: [\\" ch "].")))))
 
 (defn- read-string*
   [reader _ opts]
   (loop [sb (StringBuilder.)
          ch (read-char reader)]
     (case ch
-      nil (reader-error reader "EOF while reading string starting with " sb)
+      nil (reader-error reader "EOF while reading string starting with [" sb "].")
       \\ (recur (doto sb (.append (escape-char sb reader)))
                 (read-char reader))
       \" (str sb)
@@ -240,7 +245,7 @@
 
 (defn- read-symbol
   [rdr initch]
-  (when-let [token (read-token rdr initch)]
+  (when-let [token (read-token rdr initch "symbol")]
     (case token
 
       ;; special symbols
@@ -254,22 +259,22 @@
 
       (or (when-let [p (parse-symbol token)]
             (symbol (p 0) (p 1)))
-          (reader-error rdr "Invalid token: " token)))))
+          (reader-error rdr "Invalid token: [" token "].")))))
 
 (defn- read-keyword
   [reader initch opts]
   (let [ch (read-char reader)]
     (if-not (whitespace? ch)
-      (let [token (read-token reader ch)
+      (let [token (read-token reader ch "keyword")
             s (parse-symbol token)]
         (if (and s (== -1 (.indexOf token "::")))
           (let [^String ns (s 0)
                 ^String name (s 1)]
             (if (identical? \: (nth token 0))
-              (reader-error reader "Invalid symbol: :" token) ;; no ::keyword in edn
+              (reader-error reader "In EDN, symbols cannot start with two colons [" token "].") ;; no ::keyword in edn
               (keyword ns name)))
-          (reader-error reader "Invalid symbol: :" token)))
-      (reader-error reader "Invalid symbol: :"))))
+          (reader-error reader "Invalid keyword: [:" token "].")))
+      (reader-error reader "A single colon is not a valid keyword."))))
 
 (defn- wrapping-reader
   [sym]
@@ -280,11 +285,14 @@
   [rdr _ opts]
   (let [m (desugar-meta (read rdr true nil opts))]
     (when-not (map? m)
-      (reader-error rdr "Metadata must be Symbol, Keyword, String or Map, not " (class m)))
+      (reader-error rdr "Metadata must be Symbol, Keyword, String or Map, not an instance of [" (class m) "]."))
     (let [o (read rdr true nil opts)]
       (if (instance? IMeta o)
         (with-meta o (merge (meta o) m))
-        (reader-error rdr "Metadata cannot be applied to " (class o) ". Metadata can only be applied to IMetas.")))))
+        (reader-error rdr
+                      "Metadata cannot be applied to instance of "
+                      (class o)
+                      ". Metadata can only be applied to IMetas.")))))
 
 (defn- read-set
   [rdr _ opts]
@@ -297,18 +305,22 @@
 
 (defn- read-namespaced-map
   [rdr _ opts]
-  (let [token (read-token rdr (read-char rdr))]
+  (let [token (read-token rdr (read-char rdr) "namespaced map")]
     (if-let [ns (some-> token parse-symbol second')]
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
           (let [items (read-delimited "namespaced map" \} rdr opts)]
             (when (odd? (count items))
-              (reader-error rdr "Map literal must contain an even number of forms"))
+              (reader-error rdr (str
+                                  "Map literals must contain an even number of forms. "
+                                  "The value supplied contains "
+                                  (count items)
+                                  " forms." )))
             (let [keys (take-nth 2 items)
                   vals (take-nth 2 (rest items))]
               (zipmap (namespace-keys (str ns) keys) vals)))
-          (reader-error rdr "Namespaced map must specify a map")))
-      (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
+          (reader-error rdr "Namespaced map must specify a map.")))
+        (reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
 
 (defn- macros [ch]
   (case ch
@@ -330,7 +342,7 @@
   (case ch
     \^ read-meta                ;deprecated
     \{ read-set
-    \< (throwing-reader "Unreadable form")
+    \< (throwing-reader "Unreadable form.")
     \! read-comment
     \_ read-discard
     \: read-namespaced-map
@@ -340,13 +352,13 @@
   (let [tag (read rdr true nil opts)
         object (read rdr true nil opts)]
     (if-not (symbol? tag)
-      (reader-error rdr "Reader tag must be a symbol"))
+      (reader-error rdr "Reader tag must be a symbol, not an instance of [" (class tag) "]."))
     (if-let [f (or (get (:readers opts) tag)
                    (default-data-readers tag))]
       (f object)
       (if-let [d (:default opts)]
         (d tag object)
-        (reader-error rdr "No reader function for tag " (name tag))))))
+        (reader-error rdr "No reader function for tag [" (name tag) "].")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API

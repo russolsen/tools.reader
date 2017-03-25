@@ -391,7 +391,10 @@
 
 (defn location-str [rdr]
   (if (indexing-reader? rdr)
-    (str "On line " (get-line-number rdr) " at column: " (get-column-number rdr) ": ") ""))
+    (let [file-name (get-file-name rdr)
+          msg1 (if file-name (format "In file [%s] on line" file-name) "On line")
+          msg2 (format " %d at column %d: " (get-line-number rdr) (get-column-number rdr))]
+      (str msg1 msg2))))
 
 (defn reader-error
   "Throws an ExceptionInfo with the given message.
