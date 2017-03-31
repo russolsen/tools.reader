@@ -1,111 +1,105 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="UTF-8"?><project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <artifactId>pom.contrib</artifactId>
+    <groupId>org.clojure</groupId>
+    <version>0.2.0</version>
+    <relativePath/>
+  </parent>
+  <groupId>org.clojure</groupId>
   <artifactId>tools.reader</artifactId>
+  <packaging>jar</packaging>
   <version>1.0.0-SNAPSHOT</version>
   <name>tools.reader</name>
-  <description>A Clojure reader in Clojure </description>
+  <description>A Clojure reader in Clojure</description>
   <url>https://github.com/clojure/tools.reader</url>
-
+  <licenses>
+    <license>
+      <name>Eclipse Public License</name>
+      <url>http://www.eclipse.org/legal/epl-v10.html</url>
+    </license>
+  </licenses>
+  <scm>
+    <connection>scm:git:git://github.com/clojure/tools.reader.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/clojure/tools.reader.git</developerConnection>
+    <tag>4576f34a414a8b41a8a2df56b7b3818dd633c897
+</tag>
+    <url>https://github.com/clojure/tools.reader</url>
+  </scm>
   <build>
-
+    <sourceDirectory>src/main/clojure</sourceDirectory>
+    <testSourceDirectory>src/test/clojure</testSourceDirectory>
     <resources>
       <resource>
-        <directory>src/main/clojure</directory>
-      </resource>
-      <resource>
-        <directory>src/main/cljs</directory>
+        <directory>resources</directory>
       </resource>
     </resources>
-
+    <testResources>
+      <testResource>
+        <directory>resources</directory>
+      </testResource>
+    </testResources>
+    <directory>target</directory>
+    <outputDirectory>target/classes</outputDirectory>
     <plugins>
       <plugin>
-        <groupId>com.theoryinpractise</groupId>
-        <artifactId>clojure-maven-plugin</artifactId>
-        <version>1.7.1</version>
-        <configuration>
-            <temporaryOutputDirectory>false</temporaryOutputDirectory>
-        </configuration>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.7</version>
         <executions>
           <execution>
-            <id>clojure-compile</id>
-            <phase>compile</phase>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
             <goals>
-              <goal>compile</goal>
+              <goal>add-source</goal>
             </goals>
             <configuration>
-              <compileDeclaredNamespaceOnly>true</compileDeclaredNamespaceOnly>
-              <namespaces>
-                <namespace>clojure.tools.reader</namespace>
-                <namespace>clojure.tools.reader.default-data-readers</namespace>
-                <namespace>clojure.tools.reader.edn</namespace>
-                <namespace>clojure.tools.reader.impl.commons</namespace>
-                <namespace>clojure.tools.reader.impl.utils</namespace>
-                <namespace>clojure.tools.reader.reader-types</namespace>
-              </namespaces>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-jar-plugin</artifactId>
-        <version>2.4</version>
-        <executions>
-          <execution>
-            <id>default-jar</id>
-            <phase>package</phase>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-            <configuration>
-              <includes>
-                <include>**/*.clj</include>
-                <include>**/*.cljs</include>
-              </includes>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4</version>
-        <executions>
-          <execution>
-            <id>aot-jar</id>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-	        <configuration>
-	          <descriptors>
-		        <descriptor>src/assembly/aot.xml</descriptor>
-	          </descriptors>
+              <sources>
+                <source>src/main/cljs</source>
+              </sources>
             </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
   </build>
-
-  <licenses>
-    <license>
-      <name>Eclipse Public License 1.0</name>
-      <url>http://opensource.org/licenses/eclipse-1.0.php</url>
-      <distribution>repo</distribution>
-    </license>
-  </licenses>
-
-  <parent>
-    <groupId>org.clojure</groupId>
-    <artifactId>pom.contrib</artifactId>
-    <version>0.2.2</version>
-  </parent>
-
+  <repositories>
+    <repository>
+      <id>central</id>
+      <url>https://repo1.maven.org/maven2/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+    <repository>
+      <id>clojars</id>
+      <url>https://clojars.org/repo/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+    <repository>
+      <id>sonatype-oss-public</id>
+      <url>https://oss.sonatype.org/content/groups/public/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+  </repositories>
   <dependencies>
     <dependency>
       <groupId>org.clojure</groupId>
       <artifactId>clojure</artifactId>
-      <version>1.5.1</version>
+      <version>1.9.0-master-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.clojure</groupId>
@@ -114,19 +108,9 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>
-
-  <developers>
-    <developer>
-      <id>Bronsa</id>
-      <name>Nicola Mometto</name>
-      <timezone>+1</timezone>
-    </developer>
-  </developers>
-
-  <scm>
-    <connection>scm:git:git://github.com/clojure/tools.reader.git</connection>
-    <developerConnection>scm:git:git://github.com/clojure/tools.reader.git</developerConnection>
-    <url>http://github.com/clojure/tools.reader</url>
-    <tag>HEAD</tag>
-  </scm>
 </project>
+
+<!-- This file was autogenerated by Leiningen.
+  Please do not edit it directly; instead edit project.clj and regenerate it.
+  It should not be considered canonical data. For more information see
+  https://github.com/technomancy/leiningen -->
