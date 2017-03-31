@@ -410,6 +410,22 @@
                               {:file file-name})))))))
 
 
+(defn inspect
+ "Return a string description of the value supplied.
+  May be the a string version of the value itself (e.g. \"true\")
+  or it may be a description (e.g. \"an instance of Foo\")"
+ [x]
+ (cond
+   (nil? x) "nil"
+   (symbol? x) (str x)
+   (number? x) (str x)
+   (keyword? x) (str x)
+   (char? x) (str \\ x)
+   (string? x) (.substring ^String x 0 (min 10 (.length ^String x)))
+   (= x true) (str x)
+   (= x false) (str x)
+   :default (format "<<instance of %s>>" (.getName (class x)))))
+
 (defn throw-bad-token
   "Throws an IllegalArgumentException with the given token and message."
   [token & msg]
