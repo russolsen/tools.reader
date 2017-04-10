@@ -61,7 +61,7 @@
 
 (defmethod inspect* clojure.lang.LazySeq [truncate x] "<lazy seq>")
 
-(defmethod inspect* :list [_ _] "nil")
+(defmethod inspect* :nil [_ _] "nil")
 
 (defmethod inspect* :list [truncate col]
   (inspect*-col truncate col \( \)))
