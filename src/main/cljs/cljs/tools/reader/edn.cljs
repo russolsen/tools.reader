@@ -187,12 +187,27 @@
   [rdr _ opts]
   (read-delimited "vector" \] rdr opts))
 
+(defn- duplicate-keys-error [msg coll]
+  (letfn [(duplicates [seq]
+            (for [[id freq] (frequencies seq)
+                  :when (> freq 1)]
+              id))]
+    (let [dups (duplicates coll)]
+      (apply str msg
+             (when (> (count dups) 1) "s")
+             ": " (interpose ", " dups)))))
+
 (defn- read-map
   [rdr _ opts]
-  (let [col (read-delimited "map" \} rdr opts)
-        l (to-array col)]
+  (let [the-map (read-delimited "map" \} rdr opts)
+        ks (take-nth 2 the-map)
+        key-set (set ks)
+        l (to-array the-map)]
     (when (== 1 (bit-and (alength l) 1))
-      (err/throw-odd-map rdr nil nil col))
+      (err/throw-odd-map rdr nil nil the-map))
+    (when-not (= (count key-set) (count ks))
+      (err/reader-error rdr (duplicate-keys-error
+                         "Map literal contains duplicate key" ks)))
     (apply hash-map l)))
 
 (defn- read-number
@@ -304,11 +319,14 @@
           (let [items (read-delimited "namespaced map" \} rdr opts)]
             (when (odd? (count items))
               (err/throw-odd-map rdr nil nil items))
-            (let [keys (take-nth 2 items)
+            (let [keys (namespace-keys (str ns) (take-nth 2 items))
                   vals (take-nth 2 (rest items))]
-              (zipmap (namespace-keys (str ns) keys) vals)))
-          (err/throw-ns-map-no-map rdr token)))
-      (err/throw-bad-ns rdr token))))
+              (when-not (= (count (set keys)) (count keys))
+                (err/reader-error rdr (duplicate-keys-error "Map literal contains duplicate key" keys)))
+              (zipmap keys vals)))
+          (err/reader-error rdr "Namespaced map must specify a map")))
+      (err/reader-error rdr "Invalid token used as namespace in namespaced map: " token))))
+
 
 (defn- macros [ch]
   (case ch

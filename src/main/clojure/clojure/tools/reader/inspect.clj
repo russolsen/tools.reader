@@ -28,8 +28,8 @@
    (keyword? x) :strable
    (number? x) :strable
    (symbol? x) :strable
-   (vector? x) (do (println :vector) :vector)
-   (list? x) (do (println :list) :list)
+   (vector? x) :vector
+   (list? x) :list
    (map? x) :map
    (set? x) :set
    (= x true) :strable

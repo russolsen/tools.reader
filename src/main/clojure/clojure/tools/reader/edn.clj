@@ -17,7 +17,7 @@
              [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
             [clojure.tools.reader.inspect :refer [inspect]]
             [clojure.tools.reader.impl.commons :refer :all]
-            [clojure.tools.reader.errors :refer :all]
+            [clojure.tools.reader.errors :as err]
             [clojure.tools.reader :refer [default-data-readers]])
   (:import (clojure.lang PersistentHashSet IMeta RT PersistentVector)))
 
@@ -47,11 +47,11 @@
   ([rdr kind initch validate-leading?]
      (cond
       (not initch)
-      (throw-eof-at-start rdr kind)
+      (err/throw-eof-at-start rdr kind)
 
       (and validate-leading?
            (not-constituent? initch))
-      (throw-bad-char rdr kind initch)
+      (err/throw-bad-char rdr kind initch)
 
       :else
       (loop [sb (StringBuilder.)
@@ -61,7 +61,7 @@
                 (nil? ch))
           (str sb)
           (if (not-constituent? ch)
-            (throw-bad-char rdr kind ch)
+            (err/throw-bad-char rdr kind ch)
             (recur (doto sb (.append (read-char rdr))) (peek-char rdr))))))))
 
 
@@ -75,12 +75,12 @@
       (dm rdr ch opts)
       (if-let [obj (read-tagged (doto rdr (unread ch)) ch opts)]
         obj
-        (throw-no-dispatch rdr ch)))
-    (throw-eof-at-dispatch rdr)))
+        (err/throw-no-dispatch rdr ch)))
+    (err/throw-eof-at-dispatch rdr)))
 
 (defn- read-unmatched-delimiter
   [rdr ch opts]
-  (throw-unmatch-delimiter rdr ch))
+  (err/throw-unmatch-delimiter rdr ch))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; readers
@@ -91,13 +91,13 @@
   ([^String token ^long offset ^long length ^long base]
    (let [l (+ offset length)]
      (when-not (== (count token) l)
-       (throw-invalid-unicode-literal nil token))
+       (err/throw-invalid-unicode-literal nil token))
      (loop [i offset uc 0]
        (if (== i l)
          (char uc)
          (let [d (Character/digit (int (nth token i)) (int base))]
            (if (== d -1)
-             (throw-invalid-unicode-digit-in-token nil (nth token i) token)
+             (err/throw-invalid-unicode-digit-in-token nil (nth token i) token)
              (recur (inc i) (long (+ d (* uc base))))))))))
 
   ([rdr initch base length exact?]
@@ -105,19 +105,19 @@
          base (long base)]
      (loop [i 1 uc (Character/digit (int initch) (int base))]
        (if (== uc -1)
-         (throw-invalid-unicode-digit rdr initch)
+         (err/throw-invalid-unicode-digit rdr initch)
          (if-not (== i length)
            (let [ch (peek-char rdr)]
              (if (or (whitespace? ch)
                      (macros ch)
                      (nil? ch))
                (if exact?
-                 (throw-invalid-unicode-len rdr i length)
+                 (err/throw-invalid-unicode-len rdr i length)
                  (char uc))
                (let [d (Character/digit (int ch) (int base))]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw-invalid-unicode-digit rdr ch)
+                   (err/throw-invalid-unicode-digit rdr ch)
                    (recur (inc i) (long (+ d (* uc base))))))))
            (char uc)))))))
 
@@ -150,20 +150,20 @@
                ic (int c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (throw-invalid-character-literal rdr (Integer/toString ic 16))
+             (err/throw-invalid-character-literal rdr (Integer/toString ic 16))
              c))
 
          (.startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
-             (throw-invalid-octal-len rdr token)
+             (err/throw-invalid-octal-len rdr token)
              (let [uc (read-unicode-char token 1 len 8)]
                (if (> (int uc) 0377)
-                 (throw-bad-octal-number rdr)
+                 (err/throw-bad-octal-number rdr)
                  uc))))
 
-         :else (throw-unsupported-character rdr token)))
-      (throw-eof-in-character rdr))))
+         :else (err/throw-unsupported-character rdr token)))
+      (err/throw-eof-in-character rdr))))
 
 (defn- ^PersistentVector read-delimited
   [kind delim rdr opts]
@@ -173,7 +173,7 @@
     (loop [a (transient [])]
       (let [ch (read-past whitespace? rdr)]
         (when-not ch
-          (throw-eof-delimited rdr kind first-line (count a)))
+          (err/throw-eof-delimited rdr kind first-line (count a)))
 
         (if (identical? delim (char ch))
           (persistent! a)
@@ -199,7 +199,7 @@
   (let [col (read-delimited "map" \} rdr opts)
         l (to-array col)]
     (when (== 1 (bit-and (alength l) 1))
-      (throw-odd-map rdr nil nil col))
+      (err/throw-odd-map rdr nil nil col))
     (RT/map l)))
 
 (defn- read-number
@@ -210,7 +210,7 @@
       (let [s (str sb)]
         (unread rdr ch)
         (or (match-number s)
-            (throw-invalid-number rdr s)))
+            (err/throw-invalid-number rdr s)))
       (recur (doto sb (.append ch)) (read-char rdr)))))
 
 
@@ -226,21 +226,21 @@
       \f "\f"
       \u (let [ch (read-char rdr)]
            (if (== -1 (Character/digit (int ch) 16))
-             (throw-invalid-unicode-escape rdr ch)
+             (err/throw-invalid-unicode-escape rdr ch)
              (read-unicode-char rdr ch 16 4 true)))
       (if (numeric? ch)
         (let [ch (read-unicode-char rdr ch 8 3 false)]
           (if (> (int ch) 0337)
-            (throw-bad-octal-number rdr)
+            (err/throw-bad-octal-number rdr)
             ch))
-        (throw-bad-escape-char rdr ch)))))
+        (err/throw-bad-escape-char rdr ch)))))
 
 (defn- read-string*
   [rdr _ opts]
   (loop [sb (StringBuilder.)
          ch (read-char rdr)]
     (case ch
-      nil (throw-eof-reading rdr "string" \" sb)
+      nil (err/throw-eof-reading rdr "string" \" sb)
       \\ (recur (doto sb (.append (escape-char sb rdr)))
                 (read-char rdr))
       \" (str sb)
@@ -262,7 +262,7 @@
 
       (or (when-let [p (parse-symbol token)]
             (symbol (p 0) (p 1)))
-          (throw-invalid rdr "symbol" token)))))
+          (err/throw-invalid rdr "symbol" token)))))
 
 (defn- read-keyword
   [reader initch opts]
@@ -274,10 +274,10 @@
           (let [^String ns (s 0)
                 ^String name (s 1)]
             (if (identical? \: (nth token 0))
-              (throw-invalid reader "keyword" token) ; No ::kw in edn.
+              (err/throw-invalid reader "keyword" token) ; No ::kw in edn.
               (keyword ns name)))
-          (throw-invalid reader "keyword" token)))
-      (throw-single-colon reader))))
+          (err/throw-invalid reader "keyword" token)))
+      (err/throw-single-colon reader))))
 
 (defn- wrapping-reader
   [sym]
@@ -289,12 +289,12 @@
   [rdr _ opts]
   (let [m (desugar-meta (read rdr true nil opts))]
     (when-not (map? m)
-      (throw-bad-metadata rdr m))
+      (err/throw-bad-metadata rdr m))
 
     (let [o (read rdr true nil opts)]
       (if (instance? IMeta o)
         (with-meta o (merge (meta o) m))
-        (throw-bad-metadata-target rdr o)))))
+        (err/throw-bad-metadata-target rdr o)))))
 
 (defn- read-set
   [rdr _ opts]
@@ -313,12 +313,12 @@
         (if (identical? ch \{)
           (let [items (read-delimited  "namespaced map" \} rdr opts)]
             (when (odd? (count items))
-              (throw-odd-map rdr nil nil items))
+              (err/throw-odd-map rdr nil nil items))
             (let [keys (take-nth 2 items)
                   vals (take-nth 2 (rest items))]
-              (zipmap (namespace-keys (str ns) keys) vals)))
-          (throw-ns-map-no-map rdr token)))
-      (throw-bad-ns rdr token))))
+              (RT/map (to-array (mapcat list (namespace-keys (str ns) keys) vals)))))
+              (err/throw-ns-map-no-map rdr token)))
+          (err/throw-bad-ns rdr token))))
 
 (defn- macros [ch]
   (case ch
@@ -351,13 +351,13 @@
   (let [tag (read rdr true nil opts)
         object (read rdr true nil opts)]
     (if-not (symbol? tag)
-      (throw-bad-reader-tag rdr "Reader tag must be a symbol"))
+      (err/throw-bad-reader-tag rdr "Reader tag must be a symbol"))
     (if-let [f (or (get (:readers opts) tag)
                    (default-data-readers tag))]
       (f object)
       (if-let [d (:default opts)]
         (d tag object)
-        (throw-unknown-reader-tag rdr (name tag))))))
+        (err/throw-unknown-reader-tag rdr (name tag))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
@@ -391,7 +391,7 @@
          (let [ch (read-char reader)]
            (cond
             (whitespace? ch) (recur)
-            (nil? ch) (if eof-error? (reader-error reader "Unexpected EOF.") eof)
+            (nil? ch) (if eof-error? (err/reader-error reader "Unexpected EOF.") eof)
             (number-literal? reader ch) (read-number reader ch opts)
             :else (let [f (macros ch)]
                     (if f

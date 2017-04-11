@@ -1,0 +1,12 @@
+reader-error throw-bad-char throw-bad-dispatch
+throw-bad-escape-char throw-bad-metadata
+throw-bad-metadata-target throw-bad-ns throw-bad-octal-number
+throw-bad-reader-tag throw-eof-at-dispatch throw-eof-at-start
+throw-eof-delimited throw-eof-in-character throw-eof-reading
+throw-feature-not-keyword throw-invalid throw-invalid-character-literal
+throw-invalid-number throw-invalid-octal-len throw-invalid-unicode-char
+throw-invalid-unicode-digit-in-token throw-invalid-unicode-digit
+throw-invalid-unicode-escape throw-invalid-unicode-len
+throw-invalid-unicode-literal throw-no-dispatch throw-ns-map-no-map
+throw-odd-map throw-single-colon throw-unknown-reader-tag
+throw-unmatch-delimiter throw-unsupported-character

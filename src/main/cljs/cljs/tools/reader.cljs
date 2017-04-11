@@ -775,11 +775,13 @@
           (let [items (read-delimited "namespaced map" \} rdr opts pending-forms)]
             (when (odd? (count items))
               (err/throw-odd-map rdr nil nil items))
-            (let [keys (take-nth 2 items)
+            (let [keys (namespace-keys (str ns) (take-nth 2 items))
                   vals (take-nth 2 (rest items))]
-              (zipmap (namespace-keys (str ns) keys) vals)))
-          (err/throw-ns-map-no-map rdr token)))
-      (err/throw-bad-ns rdr token))))
+              (when-not (= (count (set keys)) (count keys))
+                (err/reader-error rdr (duplicate-keys-error "Map literal contains duplicate key" keys)))
+              (zipmap keys vals)))
+              (err/throw-ns-map-no-map rdr token)))
+          (err/throw-bad-ns rdr token))))
 
 (defn- macros [ch]
   (case ch
@@ -903,13 +905,7 @@
                                      :column (get-column-number reader)
                                      :file   (get-file-name reader)}))
                            e)))))))
-
-(defn- read*
-  ([reader eof-error? sentinel opts pending-forms]
-     (read* reader eof-error? sentinel nil opts pending-forms))
-  ([^not-native reader eof-error? sentinel return-on opts pending-forms]
-     (read*-internal reader eof-error? sentinel return-on opts pending-forms)))
-     
+                           
 (defn read
   "Reads the first object from an IPushbackReader or a java.io.PushbackReader.
    Returns the object read. If EOF, throws if eof-error? is true.
