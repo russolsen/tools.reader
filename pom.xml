@@ -16,7 +16,7 @@
   <scm>
     <connection>scm:git:git://github.com/clojure/tools.reader.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/clojure/tools.reader.git</developerConnection>
-    <tag>f5a7f0f080d674f08c0fcc7b1fed9628dc130b9e
+    <tag>afcf5cbd172c1fc12dc647b9140b252876b17e2a
 </tag>
     <url>https://github.com/clojure/tools.reader</url>
   </scm>
