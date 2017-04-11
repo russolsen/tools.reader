@@ -114,7 +114,7 @@
          length (long length)]
      (loop [i 1 uc (long (Character/digit (int initch) (int base)))]
        (if (== uc -1)
-         (throw (IllegalArgumentException. (str "Invalid digit: " initch)))
+         (throw-invalid-unicode-digit rdr initch)
          (if-not (== i length)
            (let [ch (peek-char rdr)]
              (if (or (whitespace? ch)
@@ -126,7 +126,7 @@
                (let [d (Character/digit (int ch) (int base))]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw-invalid-unicode-digit ch)
+                   (throw-invalid-unicode-digit rdr ch)
                    (recur (inc i) (long (+ d (* uc base))))))))
            (char uc)))))))
 

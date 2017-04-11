@@ -61,7 +61,7 @@
                 (nil? ch))
           (str sb)
           (if (not-constituent? ch)
-            (throw-bad-char kind ch)
+            (throw-bad-char rdr kind ch)
             (recur (doto sb (.append (read-char rdr))) (peek-char rdr))))))))
 
 
@@ -117,7 +117,7 @@
                (let [d (Character/digit (int ch) (int base))]
                  (read-char rdr)
                  (if (== d -1)
-                   (throw-invalid-unicode-digit ch)
+                   (throw-invalid-unicode-digit rdr ch)
                    (recur (inc i) (long (+ d (* uc base))))))))
            (char uc)))))))
 
