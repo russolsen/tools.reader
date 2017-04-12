@@ -228,3 +228,20 @@
     "No reader function for tag "
     (i/inspect tag)
     "."))
+
+(defn- duplicate-keys-error [msg coll]
+  (letfn [(duplicates [seq]
+            (for [[id freq] (frequencies seq)
+                  :when (> freq 1)]
+              id))]
+    (let [dups (duplicates coll)]
+      (apply str msg
+             (when (> (count dups) 1) "s")
+             ".: " (interpose ", " dups)))))
+
+(defn throw-dup-keys [rdr kind ks]
+  (reader-error
+    rdr
+    (duplicate-keys-error
+      (str  kind " literal contains duplicate key")
+      ks)))
