@@ -1,7 +1,7 @@
 (ns cljs.cljs.reader.test-runner
-  (:require cljs.tools.metadata-test
-            chatty.cljs.reader-test
-            chatty.cljs.reader-edn-test
+  (:require chatty.cljs.reader.metadata-test
+            chatty.cljs.reader.reader-test
+            chatty.cljs.reader.reader-edn-test
             [cljs.test :refer-macros [run-all-tests]]))
 
 (enable-console-print!)

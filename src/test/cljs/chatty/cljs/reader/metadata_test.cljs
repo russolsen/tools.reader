@@ -21,7 +21,7 @@
 
 (def test-contents
   "Contents of a file stream for testing."
-  "(ns clojure.tools.reader.haiku)\n\n(defn haiku
+  "(ns chatty.cljs.reader.haiku)\n\n(defn haiku
     \"It will read the form
     but will the form metadata be
     or never become?\"
@@ -37,8 +37,8 @@
 
 (def expected-haiku-ns
   (with-meta  (list (with-meta 'ns {:line 1 :column 2 :end-line 1 :end-column 4 :file "haiku.clj"})
-                    (with-meta 'clojure.tools.reader.haiku {:line 1 :column 5 :end-line 1 :end-column 31 :file "haiku.clj"}))
-    {:line 1 :column 1 :end-line 1 :end-column 32 :file "haiku.clj"}))
+                    (with-meta 'chatty.cljs.reader.haiku {:line 1 :column 5 :end-line 1 :end-column 29 :file "haiku.clj"}))
+    {:line 1 :column 1 :end-line 1 :end-column 30 :file "haiku.clj"}))
 
 (def expected-haiku-defn
   (with-meta (list
@@ -65,7 +65,7 @@
                    (reader-types/indexing-push-back-reader 1 "haiku.clj"))
         first-form (read reader)
         second-form (read reader)]
-    (is (= {:line 1 :column 1 :end-line 1 :end-column 32 :file "haiku.clj"} (meta first-form)))
+    (is (= {:line 1 :column 1 :end-line 1 :end-column 30 :file "haiku.clj"} (meta first-form)))
     (compare-forms-with-meta expected-haiku-ns first-form)
     (compare-forms-with-meta expected-haiku-defn second-form)))
 
@@ -73,8 +73,8 @@
   (with-meta
     (list
      (with-meta 'ns {:line 1 :column 2 :end-line 1 :end-column 4 :source "ns" :file "haiku.clj"})
-     (with-meta ' clojure.tools.reader.haiku {:line 1 :column 5 :end-line 1 :end-column 31 :source "clojure.tools.reader.haiku" :file "haiku.clj"}))
-    {:line 1 :column 1 :end-line 1 :end-column 32 :source "(ns clojure.tools.reader.haiku)" :file "haiku.clj"}))
+     (with-meta ' chatty.cljs.reader.haiku {:line 1 :column 5 :end-line 1 :end-column 29 :source "chatty.cljs.reader.haiku" :file "haiku.clj"}))
+    {:line 1 :column 1 :end-line 1 :end-column 30 :source "(ns chatty.cljs.reader.haiku)" :file "haiku.clj"}))
 
 (def expected-haiku-defn-with-source
   (with-meta (list
@@ -111,7 +111,7 @@
                    (reader-types/source-logging-push-back-reader 1 "haiku.clj"))
         first-form (read reader)
         second-form (read reader)]
-    (is (= {:line 1 :column 1 :end-line 1 :end-column 32 :source "(ns clojure.tools.reader.haiku)" :file "haiku.clj"} (meta first-form)))
+    (is (= {:line 1 :column 1 :end-line 1 :end-column 30 :source "(ns chatty.cljs.reader.haiku)" :file "haiku.clj"} (meta first-form)))
     (compare-forms-with-meta expected-haiku-ns-with-source first-form)
     (compare-forms-with-meta expected-haiku-defn-with-source second-form)))
 

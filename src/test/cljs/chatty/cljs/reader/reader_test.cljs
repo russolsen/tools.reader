@@ -306,7 +306,7 @@
       (is (= s (pr-str (read-string {:read-cond :preserve} s)))))))
 
 (deftest read-namespaced-map
-  (binding [*ns* (create-ns 'chatty.cljs.reader-test)]
+  (binding [*ns* (create-ns 'chatty.cljs.reader.reader-test)]
     (is (= {:foo/bar 1 :baz 2} (read-string "#:foo{:bar 1 :_/baz 2}")))
     (is (= '{foo/bar 1 :baz 2} (read-string "#:foo{bar 1 :_/baz 2}")))
     (is (= {::foo 1} (read-string "#::{:foo 1}")))
