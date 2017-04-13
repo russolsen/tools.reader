@@ -1,6 +1,6 @@
-(ns cljs.tools.reader-edn-test
+(ns chatty.cljs.reader.reader-edn-test
   (:require [cljs.test :as t :refer-macros [deftest is run-tests]]
-            [cljs.tools.reader.edn :refer [read-string]]))
+            [chatty.cljs.reader.edn :refer [read-string]]))
 
 ;;==============================================================================
 ;; common_tests.clj

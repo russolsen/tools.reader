@@ -1,9 +1,9 @@
-(ns cljs.tools.metadata-test
+(ns chatty.cljs.reader.metadata-test
   (:refer-clojure :exclude [read *default-data-reader-fn* read-string])
-  (:require [cljs.tools.reader :refer
+  (:require [chatty.cljs.reader :refer
              [read *data-readers* *default-data-reader-fn* read-string]]
             [cljs.test :as t :refer-macros [deftest is run-tests]]
-            [cljs.tools.reader.reader-types :as reader-types]
+            [chatty.cljs.reader.reader-types :as reader-types]
             [clojure.string :as str]
             [clojure.walk :as walk]))
 

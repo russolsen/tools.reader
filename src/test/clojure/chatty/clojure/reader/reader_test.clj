@@ -1,9 +1,9 @@
-(ns clojure.tools.reader-test
+(ns chatty.clojure.reader.reader-test
   (:refer-clojure :exclude [read read-string *default-data-reader-fn* *data-readers*])
-  (:use [clojure.tools.reader :only [read read-string *default-data-reader-fn* *data-readers*]]
-        [clojure.tools.reader.reader-types :only [string-push-back-reader]]
+  (:use [chatty.clojure.reader :only [read read-string *default-data-reader-fn* *data-readers*]]
+        [chatty.clojure.reader.reader-types :only [string-push-back-reader]]
         [clojure.test :only [deftest is are testing]]
-        [clojure.tools.reader.impl.utils :exclude [char]])
+        [chatty.clojure.reader.impl.utils :exclude [char]])
   (:import clojure.lang.BigInt))
 
 (load "common_tests")
@@ -78,15 +78,15 @@
 (defrecord bar [baz buz])
 
 (deftest read-record
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo[]")))
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo []"))) ;; not valid in clojure
-  (is (= (foo.) (read-string "#clojure.tools.reader_test.foo{}")))
-  (is (= (assoc (foo.) :foo 'bar) (read-string "#clojure.tools.reader_test.foo{:foo bar}")))
+  (is (= (foo.) (read-string "#chatty.clojure.reader.reader_test.foo[]")))
+  (is (= (foo.) (read-string "#chatty.clojure.reader.reader_test.foo []"))) ;; not valid in clojure
+  (is (= (foo.) (read-string "#chatty.clojure.reader.reader_test.foo{}")))
+  (is (= (assoc (foo.) :foo 'bar) (read-string "#chatty.clojure.reader.reader_test.foo{:foo bar}")))
 
-  (is (= (map->bar {}) (read-string "#clojure.tools.reader_test.bar{}")))
-  (is (= (bar. 1 nil) (read-string "#clojure.tools.reader_test.bar{:baz 1}")))
-  (is (= (bar. 1 nil) (read-string "#clojure.tools.reader_test.bar[1 nil]")))
-  (is (= (bar. 1 2) (read-string "#clojure.tools.reader_test.bar[1 2]"))))
+  (is (= (map->bar {}) (read-string "#chatty.clojure.reader.reader_test.bar{}")))
+  (is (= (bar. 1 nil) (read-string "#chatty.clojure.reader.reader_test.bar{:baz 1}")))
+  (is (= (bar. 1 nil) (read-string "#chatty.clojure.reader.reader_test.bar[1 nil]")))
+  (is (= (bar. 1 2) (read-string "#chatty.clojure.reader.reader_test.bar[1 2]"))))
 
 (deftest read-ctor
   (is (= "foo" (read-string "#java.lang.String[\"foo\"]"))))
@@ -172,7 +172,7 @@
 (alias 'c.c 'clojure.core)
 
 (deftest read-namespaced-map
-  (binding [*ns* (the-ns 'clojure.tools.reader-test)]
+  (binding [*ns* (the-ns 'chatty.clojure.reader.reader-test)]
     (is (= {::foo 1} (read-string "#::{:foo 1}")))
     (is (= {::foo 1 :bar 2} (read-string "#::{:foo 1 :_/bar 2}")))
     (is (= {:a/foo 1 :bar 2} (read-string "#:a{:foo 1 :_/bar 2}")))
