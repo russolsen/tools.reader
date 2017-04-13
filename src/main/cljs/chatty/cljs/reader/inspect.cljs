@@ -8,7 +8,7 @@
 
 (ns ^{:doc "Simple value inspector."
       :author "Russ Olsen"}
-  cljs.tools.reader.inspect)
+  chatty.cljs.reader.inspect)
 
 (declare inspect*)
 

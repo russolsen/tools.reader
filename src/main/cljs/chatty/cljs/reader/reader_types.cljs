@@ -8,9 +8,9 @@
 
 (ns ^{:doc "Protocols and default Reader types implementation"
       :author "Bronsa"}
-  cljs.tools.reader.reader-types
+  chatty.cljs.reader.reader-types
   (:refer-clojure :exclude [char read-line])
-  (:require [cljs.tools.reader.impl.utils :refer [char whitespace? newline?]]
+  (:require [chatty.cljs.reader.impl.utils :refer [char whitespace? newline?]]
             [goog.string])
   (:import goog.string.StringBuffer))
 

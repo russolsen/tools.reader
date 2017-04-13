@@ -6,12 +6,12 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns cljs.tools.reader.impl.commons
+(ns chatty.cljs.reader.impl.commons
   (:refer-clojure :exclude [char])
   (:require
-   [cljs.tools.reader.errors :refer [reader-error]]
-   [cljs.tools.reader.reader-types :refer [peek-char read-char]]
-   [cljs.tools.reader.impl.utils :refer [numeric? newline? char]]))
+   [chatty.cljs.reader.errors :refer [reader-error]]
+   [chatty.cljs.reader.reader-types :refer [peek-char read-char]]
+   [chatty.cljs.reader.impl.utils :refer [numeric? newline? char]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; helpers

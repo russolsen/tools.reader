@@ -8,11 +8,11 @@
 
 (ns ^{:doc "Protocols and default Reader types implementation"
       :author "Bronsa"}
-    clojure.tools.reader.reader-types
+    chatty.clojure.reader.reader-types
   (:refer-clojure :exclude [char read-line])
-  (:require [clojure.tools.reader.impl.utils :refer
+  (:require [chatty.clojure.reader.impl.utils :refer
              [char whitespace? newline? make-var]]
-             [clojure.tools.reader.inspect :refer [inspect]])
+             [chatty.clojure.reader.inspect :refer [inspect]])
   (:import clojure.lang.LineNumberingPushbackReader
            (java.io InputStream BufferedReader Closeable)))
 
@@ -189,7 +189,7 @@
     (if (satisfies? Reader rdr)
       rdr
       (throw (IllegalArgumentException. (str "Argument of type: " (class rdr) " cannot be converted to Reader")))))
-  clojure.tools.reader.reader_types.Reader
+  chatty.clojure.reader.reader_types.Reader
   (to-rdr [rdr] rdr)
   String
   (to-rdr [str] (string-reader str))
@@ -205,9 +205,9 @@
     (if (satisfies? Reader rdr)
       (push-back-reader rdr buf-len)
       (throw (IllegalArgumentException. (str "Argument of type: " (class rdr) " cannot be converted to IPushbackReader")))))
-  clojure.tools.reader.reader_types.Reader
+  chatty.clojure.reader.reader_types.Reader
   (to-pbr [rdr buf-len] (push-back-reader rdr buf-len))
-  clojure.tools.reader.reader_types.PushbackReader
+  chatty.clojure.reader.reader_types.PushbackReader
   (to-pbr [rdr buf-len] (push-back-reader rdr buf-len))
   String
   (to-pbr [str buf-len] (push-back-reader str buf-len))
@@ -305,11 +305,11 @@
 (defn indexing-reader?
   "Returns true if the reader satisfies IndexingReader"
   [rdr]
-  (or (instance? clojure.tools.reader.reader_types.IndexingReader rdr)
+  (or (instance? chatty.clojure.reader.reader_types.IndexingReader rdr)
       (instance? LineNumberingPushbackReader rdr)
-      (and (not (instance? clojure.tools.reader.reader_types.PushbackReader rdr))
-           (not (instance? clojure.tools.reader.reader_types.StringReader rdr))
-           (not (instance? clojure.tools.reader.reader_types.InputStreamReader rdr))
+      (and (not (instance? chatty.clojure.reader.reader_types.PushbackReader rdr))
+           (not (instance? chatty.clojure.reader.reader_types.StringReader rdr))
+           (not (instance? chatty.clojure.reader.reader_types.InputStreamReader rdr))
            (get (:impls IndexingReader) (class rdr)))))
 
 (defn string-reader

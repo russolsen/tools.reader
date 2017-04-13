@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns cljs.tools.reader.impl.utils
+(ns chatty.cljs.reader.impl.utils
   (:refer-clojure :exclude [char])
   (:require
    [clojure.string :as string]

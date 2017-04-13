@@ -8,21 +8,21 @@
 
 (ns ^{:doc "A clojure reader in clojure"
       :author "Bronsa"}
-  cljs.tools.reader
+  chatty.cljs.reader
   (:refer-clojure :exclude [read read-line read-string char
                             default-data-readers *default-data-reader-fn*
                             *data-readers* *suppress-read*])
-  (:require-macros [cljs.tools.reader.reader-types :refer [log-source]])
-  (:require [cljs.tools.reader.reader-types :refer
+  (:require-macros [chatty.cljs.reader.reader-types :refer [log-source]])
+  (:require [chatty.cljs.reader.reader-types :refer
              [read-char unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name
               string-push-back-reader]]
-            [cljs.tools.reader.impl.utils :refer
+            [chatty.cljs.reader.impl.utils :refer
              [char ex-info? whitespace? numeric? desugar-meta next-id namespace-keys second'
               ReaderConditional reader-conditional reader-conditional?]]
-            [cljs.tools.reader.impl.commons :refer
+            [chatty.cljs.reader.impl.commons :refer
              [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
-            [cljs.tools.reader.errors :as err]
+            [chatty.cljs.reader.errors :as err]
             [goog.array :as garray]
             [goog.string :as gstring])
   (:import goog.string.StringBuffer))
@@ -918,10 +918,10 @@
     :eof - on eof, return value unless :eofthrow, then throw.
            if not specified, will throw
 
-   To read data structures only, use clojure.tools.reader.edn/read
+   To read data structures only, use chatty.cljs.reader.edn/read
 
-   Note that the function signature of clojure.tools.reader/read and
-   clojure.tools.reader.edn/read is not the same for eof-handling"
+   Note that the function signature of chatty.cljs.reader/read and
+   chatty.cljs.reader.edn/read is not the same for eof-handling"
   {:arglists '([] [reader] [opts reader] [reader eof-error? eof-value])}
   ([reader] (read reader true nil))
   ([{eof :eof :as opts :or {eof :eofthrow}} reader] (read* reader (= eof :eofthrow) eof nil opts (to-array [])))
@@ -931,10 +931,10 @@
   "Reads one object from the string s.
    Returns nil when s is nil or empty.
 
-   To read data structures only, use clojure.tools.reader.edn/read-string
+   To read data structures only, use chatty.cljs.reader.edn/read-string
 
-   Note that the function signature of clojure.tools.reader/read-string and
-   clojure.tools.reader.edn/read-string is not the same for eof-handling"
+   Note that the function signature of chatty.cljs.reader/read-string and
+   chatty.cljs.reader.edn/read-string is not the same for eof-handling"
   ([s]
      (read-string {} s))
   ([opts s]

@@ -6,11 +6,11 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns clojure.tools.reader.impl.commons
+(ns chatty.clojure.reader.impl.commons
   (:refer-clojure :exclude [char])
-  (:require [clojure.tools.reader.reader-types :refer [peek-char read-char]]
-            [clojure.tools.reader.errors :refer [reader-error]]
-            [clojure.tools.reader.impl.utils :refer [numeric? newline? char]])
+  (:require [chatty.clojure.reader.reader-types :refer [peek-char read-char]]
+            [chatty.clojure.reader.errors :refer [reader-error]]
+            [chatty.clojure.reader.impl.utils :refer [numeric? newline? char]])
   (:import (clojure.lang BigInt Numbers)
            (java.util.regex Pattern Matcher)
            java.lang.reflect.Constructor))

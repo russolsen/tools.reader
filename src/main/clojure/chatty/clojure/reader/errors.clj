@@ -1,10 +1,8 @@
-(ns cljs.tools.reader.errors
-  (:require [cljs.tools.reader.reader-types :as types]
-            [cljs.tools.reader.inspect :as i]))
+(ns chatty.clojure.reader.errors
+  (:require [chatty.clojure.reader.reader-types :as types])
+  (:require [chatty.clojure.reader.inspect :as i]))
 
-;;tbd some exceptions should have type :illegal-argument
-
-#_(defn- location-details [rdr]
+(defn- location-details [rdr]
   (let [details {:type :reader-exception}]
     (if (types/indexing-reader? rdr)
       (assoc
@@ -14,21 +12,11 @@
         :col (types/get-column-number rdr))
       details)))
 
-(defn- ex-details
-  [rdr ex-type]
-    (let [details {:type ex-type}]
-      (if (types/indexing-reader? rdr)
-        (assoc
-          details
-          :file (types/get-file-name rdr)
-          :line (types/get-line-number rdr)
-          :col (types/get-column-number rdr))
-        details)))
-
-(defn- throw-ex
-  "Throw an ex-info error."
-  [rdr ex-type & msg]
-  (let [details (ex-details rdr ex-type)
+(defn reader-error
+  "Throws an ExceptionInfo with the given message.
+   If rdr is an IndexingReader, additional information about column and line number is provided"
+  [rdr & msg]
+  (let [details (location-details rdr)
         file (:file details)
         line (:line details)
         col (:col details)
@@ -38,17 +26,6 @@
         full-msg (apply str msg1 msg2 msg3 msg)]
     (throw (ex-info full-msg details))))
 
-(defn reader-error
-  "Throws an ExceptionInfo with the given message.
-   If rdr is an IndexingReader, additional information about column and line number is provided"
-   [rdr & msgs]
-  (throw-ex rdr :reader-exception (apply str msgs)))
-
-(defn illegal-arg-error
-  "Throws an IllegalArgument with the given message.
-   If rdr is an IndexingReader, additional information about column and line number is provided"
-   [rdr & msgs]
-  (throw-ex rdr :illegal-argument (apply str msgs)))
 
 (defn throw-eof-delimited
   ([rdr kind line] (throw-eof-delimited rdr kind line nil))
@@ -82,11 +59,8 @@
 
 (defn throw-invalid-unicode-literal [rdr token]
   (throw
-    (illegal-arg-error
-      rdr
-      "Invalid unicode literal: \\"
-      token
-      ".")))
+    (IllegalArgumentException.
+      (str "Invalid unicode literal: \\" token "."))))
 
 (defn throw-invalid-unicode-escape [rdr ch]
   (reader-error
@@ -120,37 +94,30 @@
   (throw-bad-dispatch rdr ch))
 
 (defn throw-invalid-unicode-char[rdr token]
-  (reader-error
-    rdr
-    "Invalid unicode character \\"
-    token
-    "."))
+  (throw
+    (IllegalArgumentException.
+     (str "Invalid unicode character \\" token "."))))
 
 (defn throw-invalid-unicode-digit-in-token[rdr ch token]
-  (illegal-arg-error
-    rdr
-    "Invalid digit "
-    ch
-    " in unicode character \\"
-    token
-    "."))
+  (throw
+    (IllegalArgumentException.
+      (str "Invalid digit " ch " in unicode character \\" token "."))))
 
 (defn throw-invalid-unicode-digit[rdr ch]
-  (illegal-arg-error
-    rdr
-    "Invalid digit "
-    ch
-    " in unicode character."))
+  (throw
+    (IllegalArgumentException.
+      (str "Invalid digit " ch " in unicode character."))))
 
 (defn throw-invalid-unicode-len[rdr actual expected]
-  (illegal-arg-error
-    rdr
-    "Invalid unicode literal. Unicode literals should be "
-    expected
-    "characters long.  "
-    "value suppled is "
-    actual
-    "characters long."))
+  (throw
+    (IllegalArgumentException.
+      (str
+        "Invalid unicode literal. Unicode literals should be "
+        expected
+        "characters long.  "
+        "value suppled is "
+        actual
+        "characters long."))))
 
 (defn throw-invalid-character-literal[rdr token]
   (reader-error rdr "Invalid character literal \\u" token "."))
@@ -228,20 +195,3 @@
     "No reader function for tag "
     (i/inspect tag)
     "."))
-
-(defn- duplicate-keys-error [msg coll]
-  (letfn [(duplicates [seq]
-            (for [[id freq] (frequencies seq)
-                  :when (> freq 1)]
-              id))]
-    (let [dups (duplicates coll)]
-      (apply str msg
-             (when (> (count dups) 1) "s")
-             ".: " (interpose ", " dups)))))
-
-(defn throw-dup-keys [rdr kind ks]
-  (reader-error
-    rdr
-    (duplicate-keys-error
-      (str  kind " literal contains duplicate key")
-      ks)))

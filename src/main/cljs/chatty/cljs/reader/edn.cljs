@@ -8,20 +8,20 @@
 
 (ns ^{:doc "An EDN reader in clojure"
       :author "Bronsa"}
-  clojure.tools.reader.edn
+  chatty.cljs.reader.edn
   (:refer-clojure :exclude [read read-string char default-data-readers])
-  (:require [clojure.tools.reader.reader-types :refer
-             [read-char unread peek-char indexing-reader?
-              get-line-number get-column-number get-file-name indexing-push-back-reader]]
-            [clojure.tools.reader.impl.utils :refer
-             [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
-            [clojure.tools.reader.inspect :refer [inspect]]
-            [clojure.tools.reader.impl.commons :refer :all]
-            [clojure.tools.reader.errors :as err]
-            [clojure.tools.reader :refer [default-data-readers]])
-  (:import (clojure.lang PersistentHashSet IMeta RT PersistentVector)))
-
-(println "loaded")
+  (:require
+    [chatty.cljs.reader.errors :as err]
+    [chatty.cljs.reader.reader-types :refer
+     [read-char unread peek-char indexing-reader?
+      get-line-number get-column-number get-file-name indexing-push-back-reader]]
+    [chatty.cljs.reader.impl.utils :refer
+     [char ex-info? whitespace? numeric? desugar-meta namespace-keys second']]
+    [chatty.cljs.reader.impl.commons :refer
+     [number-literal? read-past match-number parse-symbol read-comment throwing-reader]]
+    [chatty.cljs.reader :refer [default-data-readers char-code]]
+    [goog.string :as gstring])
+  (:import goog.string.StringBuffer))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; helpers
@@ -29,21 +29,20 @@
 
 (declare read macros dispatch-macros)
 
-(defn- macro-terminating? [ch]
+(defn- ^boolean macro-terminating? [ch]
   (and (not (identical? \# ch))
        (not (identical? \' ch))
        (not (identical? \: ch))
        (macros ch)))
 
-(defn- not-constituent? [ch]
+(defn- ^boolean not-constituent? [ch]
   (or (identical? \@ ch)
       (identical? \` ch)
       (identical? \~ ch)))
 
-(defn- ^String read-token
+(defn- read-token
   ([rdr kind initch]
      (read-token rdr kind initch true))
-
   ([rdr kind initch validate-leading?]
      (cond
       (not initch)
@@ -54,7 +53,7 @@
       (err/throw-bad-char rdr kind initch)
 
       :else
-      (loop [sb (StringBuilder.)
+      (loop [sb (StringBuffer.)
              ch (do (unread rdr initch) initch)]
         (if (or (whitespace? ch)
                 (macro-terminating? ch)
@@ -63,8 +62,6 @@
           (if (not-constituent? ch)
             (err/throw-bad-char rdr kind ch)
             (recur (doto sb (.append (read-char rdr))) (peek-char rdr))))))))
-
-
 
 (declare read-tagged)
 
@@ -86,24 +83,21 @@
 ;; readers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 (defn- read-unicode-char
-  ([^String token ^long offset ^long length ^long base]
-   (let [l (+ offset length)]
-     (when-not (== (count token) l)
-       (err/throw-invalid-unicode-literal nil token))
-     (loop [i offset uc 0]
-       (if (== i l)
-         (char uc)
-         (let [d (Character/digit (int (nth token i)) (int base))]
-           (if (== d -1)
-             (err/throw-invalid-unicode-digit-in-token nil (nth token i) token)
-             (recur (inc i) (long (+ d (* uc base))))))))))
+  ([token offset length base]
+     (let [l (+ offset length)]
+       (when-not (== (count token) l)
+         (err/throw-invalid-unicode-literal nil token))
+       (loop [i offset uc 0]
+         (if (== i l)
+           (js/String.fromCharCode uc)
+           (let [d (char-code (nth token i) base)]
+             (if (== d -1)
+               (err/throw-invalid-unicode-digit-in-token nil (nth token i) token)
+               (recur (inc i) (+ d (* uc base)))))))))
 
   ([rdr initch base length exact?]
-   (let [length (long length)
-         base (long base)]
-     (loop [i 1 uc (Character/digit (int initch) (int base))]
+     (loop [i 1 uc (char-code initch base)]
        (if (== uc -1)
          (err/throw-invalid-unicode-digit rdr initch)
          (if-not (== i length)
@@ -113,13 +107,13 @@
                      (nil? ch))
                (if exact?
                  (err/throw-invalid-unicode-len rdr i length)
-                 (char uc))
-               (let [d (Character/digit (int ch) (int base))]
+                 (js/String.fromCharCode uc))
+               (let [d (char-code ch base)]
                  (read-char rdr)
                  (if (== d -1)
                    (err/throw-invalid-unicode-digit rdr ch)
-                   (recur (inc i) (long (+ d (* uc base))))))))
-           (char uc)))))))
+                   (recur (inc i) (+ d (* uc base)))))))
+           (js/String.fromCharCode uc))))))
 
 (def ^:private ^:const upper-limit (int \uD7ff))
 (def ^:private ^:const lower-limit (int \uE000))
@@ -136,24 +130,24 @@
             token-len (count token)]
         (cond
 
-         (== 1 token-len)  (Character/valueOf (nth token 0))
+         (== 1 token-len)  (nth token 0)
 
-         (= token "newline") \newline
-         (= token "space") \space
-         (= token "tab") \tab
-         (= token "backspace") \backspace
-         (= token "formfeed") \formfeed
-         (= token "return") \return
+         (identical? token "newline") \newline
+         (identical? token "space") \space
+         (identical? token "tab") \tab
+         (identical? token "backspace") \backspace
+         (identical? token "formfeed") \formfeed
+         (identical? token "return") \return
 
-         (.startsWith token "u")
+         (gstring/startsWith token "u")
          (let [c (read-unicode-char token 1 4 16)
-               ic (int c)]
+               ic (.charCodeAt c)]
            (if (and (> ic upper-limit)
                     (< ic lower-limit))
-             (err/throw-invalid-character-literal rdr (Integer/toString ic 16))
+             (err/throw-invalid-character-literal rdr c)
              c))
 
-         (.startsWith token "o")
+         (gstring/startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
              (err/throw-invalid-octal-len rdr token)
@@ -165,7 +159,7 @@
          :else (err/throw-unsupported-character rdr token)))
       (err/throw-eof-in-character rdr))))
 
-(defn- ^PersistentVector read-delimited
+(defn- read-delimited
   [kind delim rdr opts]
   (let [first-line (when (indexing-reader? rdr)
                      (get-line-number rdr))
@@ -174,8 +168,7 @@
       (let [ch (read-past whitespace? rdr)]
         (when-not ch
           (err/throw-eof-delimited rdr kind first-line (count a)))
-
-        (if (identical? delim (char ch))
+        (if (= delim (char ch))
           (persistent! a)
           (if-let [macrofn (macros ch)]
             (let [mret (macrofn rdr ch opts)]
@@ -188,23 +181,28 @@
   (let [the-list (read-delimited "list" \) rdr opts)]
     (if (empty? the-list)
       '()
-      (clojure.lang.PersistentList/create the-list))))
+      (apply list the-list))))
 
 (defn- read-vector
   [rdr _ opts]
   (read-delimited "vector" \] rdr opts))
 
+
 (defn- read-map
   [rdr _ opts]
-  (let [col (read-delimited "map" \} rdr opts)
-        l (to-array col)]
+  (let [the-map (read-delimited "map" \} rdr opts)
+        ks (take-nth 2 the-map)
+        key-set (set ks)
+        l (to-array the-map)]
     (when (== 1 (bit-and (alength l) 1))
-      (err/throw-odd-map rdr nil nil col))
-    (RT/map l)))
+      (err/throw-odd-map rdr nil nil the-map))
+    (when-not (= (count key-set) (count ks))
+      (err/throw-dup-keys rdr "Map" ks))
+    (apply hash-map l)))
 
 (defn- read-number
   [rdr initch opts]
-  (loop [sb (doto (StringBuilder.) (.append initch))
+  (loop [sb (doto (StringBuffer.) (.append initch))
          ch (read-char rdr)]
     (if (or (whitespace? ch) (macros ch) (nil? ch))
       (let [s (str sb)]
@@ -212,7 +210,6 @@
         (or (match-number s)
             (err/throw-invalid-number rdr s)))
       (recur (doto sb (.append ch)) (read-char rdr)))))
-
 
 (defn- escape-char [sb rdr]
   (let [ch (read-char rdr)]
@@ -225,7 +222,7 @@
       \b "\b"
       \f "\f"
       \u (let [ch (read-char rdr)]
-           (if (== -1 (Character/digit (int ch) 16))
+           (if (== -1 (js/parseInt (int ch) 16))
              (err/throw-invalid-unicode-escape rdr ch)
              (read-unicode-char rdr ch 16 4 true)))
       (if (numeric? ch)
@@ -237,7 +234,7 @@
 
 (defn- read-string*
   [rdr _ opts]
-  (loop [sb (StringBuilder.)
+  (loop [sb (StringBuffer.)
          ch (read-char rdr)]
     (case ch
       nil (err/throw-eof-reading rdr "string" \" sb)
@@ -256,9 +253,9 @@
       "true" true
       "false" false
       "/" '/
-      "NaN" Double/NaN
-      "-Infinity" Double/NEGATIVE_INFINITY
-      ("Infinity" "+Infinity") Double/POSITIVE_INFINITY
+      "NaN" js/Number.NaN
+      "-Infinity" js/Number.NEGATIVE_INFINITY
+      ("Infinity" "+Infinity") js/Number.POSITIVE_INFINITY
 
       (or (when-let [p (parse-symbol token)]
             (symbol (p 0) (p 1)))
@@ -271,10 +268,10 @@
       (let [token (read-token reader "keyword" ch)
             s (parse-symbol token)]
         (if (and s (== -1 (.indexOf token "::")))
-          (let [^String ns (s 0)
-                ^String name (s 1)]
+          (let [ns (s 0)
+                name (s 1)]
             (if (identical? \: (nth token 0))
-              (err/throw-invalid reader "keyword" token) ; No ::kw in edn.
+              (err/throw-invalid reader "keyword" token) ;; no ::keyword in edn
               (keyword ns name)))
           (err/throw-invalid reader "keyword" token)))
       (err/throw-single-colon reader))))
@@ -284,21 +281,19 @@
   (fn [rdr _ opts]
     (list sym (read rdr true nil opts))))
 
-
 (defn- read-meta
   [rdr _ opts]
   (let [m (desugar-meta (read rdr true nil opts))]
     (when-not (map? m)
       (err/throw-bad-metadata rdr m))
-
     (let [o (read rdr true nil opts)]
-      (if (instance? IMeta o)
+      (if (implements? IMeta o)
         (with-meta o (merge (meta o) m))
         (err/throw-bad-metadata-target rdr o)))))
 
 (defn- read-set
   [rdr _ opts]
-  (PersistentHashSet/createWithCheck (read-delimited "set" \} rdr opts)))
+  (set (read-delimited "set" \} rdr opts)))
 
 (defn- read-discard
   [rdr _ opts]
@@ -308,17 +303,20 @@
 (defn- read-namespaced-map
   [rdr _ opts]
   (let [token (read-token rdr "namespaced map" (read-char rdr))]
-    (if-let [ns (some-> token parse-symbol second)]
+    (if-let [ns (some-> token parse-symbol second')]
       (let [ch (read-past whitespace? rdr)]
         (if (identical? ch \{)
-          (let [items (read-delimited  "namespaced map" \} rdr opts)]
+          (let [items (read-delimited "namespaced map" \} rdr opts)]
             (when (odd? (count items))
               (err/throw-odd-map rdr nil nil items))
-            (let [keys (take-nth 2 items)
+            (let [keys (namespace-keys (str ns) (take-nth 2 items))
                   vals (take-nth 2 (rest items))]
-              (RT/map (to-array (mapcat list (namespace-keys (str ns) keys) vals)))))
-              (err/throw-ns-map-no-map rdr token)))
-          (err/throw-bad-ns rdr token))))
+              (when-not (= (count (set keys)) (count keys))
+                (err/throw-dup-keys rdr "Namespaced map" keys))
+              (zipmap keys vals)))
+          (err/throw-ns-map-no-map rdr token)))
+      (err/throw-bad-ns rdr token))))
+
 
 (defn- macros [ch]
   (case ch
@@ -346,7 +344,6 @@
     \: read-namespaced-map
     nil))
 
-
 (defn- read-tagged [rdr initch opts]
   (let [tag (read rdr true nil opts)
         object (read rdr true nil opts)]
@@ -371,7 +368,7 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   clojure.tools.reader.edn/read doesn't depend on dynamic Vars, all configuration
+   chatty.cljs.reader.edn/read doesn't depend on dynamic Vars, all configuration
    is done by passing an opt map.
 
    opts is a map that can include the following keys:
@@ -380,7 +377,6 @@
               When not supplied, only the default-data-readers will be used.
    :default - A function of two args, that will, if present and no reader is found for a tag,
               be called with the tag and the value."
-  ([] (read *in*))
   ([reader] (read {} reader))
   ([{:keys [eof] :as opts} reader]
      (let [eof-error? (not (contains? opts :eof))]
@@ -391,7 +387,7 @@
          (let [ch (read-char reader)]
            (cond
             (whitespace? ch) (recur)
-            (nil? ch) (if eof-error? (err/reader-error reader "Unexpected EOF.") eof)
+            (nil? ch) (if eof-error? (err/reader-error reader "EOF") eof)
             (number-literal? reader ch) (read-number reader ch opts)
             :else (let [f (macros ch)]
                     (if f
@@ -400,12 +396,12 @@
                           (recur)
                           res))
                       (read-symbol reader ch))))))
-       (catch Exception e
+       (catch js/Error e
          (if (ex-info? e)
            (let [d (ex-data e)]
              (if (= :reader-exception (:type d))
                (throw e)
-               (throw (ex-info (.getMessage e)
+               (throw (ex-info (.-message e)
                                (merge {:type :reader-exception}
                                       d
                                       (if (indexing-reader? reader)
@@ -413,7 +409,7 @@
                                          :column (get-column-number reader)
                                          :file   (get-file-name reader)}))
                                e))))
-           (throw (ex-info (.getMessage e)
+           (throw (ex-info (.-message e)
                            (merge {:type :reader-exception}
                                   (if (indexing-reader? reader)
                                     {:line   (get-line-number reader)
@@ -428,8 +424,8 @@
    Reads data in the edn format (subset of Clojure data):
    http://edn-format.org
 
-   opts is a map as per clojure.tools.reader.edn/read"
+   opts is a map as per chatty.cljs.reader.edn/read"
   ([s] (read-string {:eof nil} s))
   ([opts s]
-     (when (and s (not (identical? s "")))
+     (when (and s (not= s ""))
        (read opts (indexing-push-back-reader s)))))

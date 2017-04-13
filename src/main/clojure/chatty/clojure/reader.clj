@@ -8,17 +8,17 @@
 
 (ns ^{:doc "A clojure reader in clojure"
       :author "Bronsa"}
-  clojure.tools.reader
+  chatty.clojure.reader
   (:refer-clojure :exclude [read read-line read-string char
                             default-data-readers *default-data-reader-fn*
                             *read-eval* *data-readers* *suppress-read*])
-  (:require [clojure.tools.reader.reader-types :refer
+  (:require [chatty.clojure.reader.reader-types :refer
              [read-char unread peek-char indexing-reader?
               get-line-number get-column-number get-file-name string-push-back-reader log-source]]
-            [clojure.tools.reader.impl.utils :refer :all] ;; [char ex-info? whitespace? numeric? desugar-meta]
-            [clojure.tools.reader.errors :as err]
-            [clojure.tools.reader.impl.commons :refer :all]
-            [clojure.tools.reader.default-data-readers :as data-readers])
+            [chatty.clojure.reader.impl.utils :refer :all] ;; [char ex-info? whitespace? numeric? desugar-meta]
+            [chatty.clojure.reader.errors :as err]
+            [chatty.clojure.reader.impl.commons :refer :all]
+            [chatty.clojure.reader.default-data-readers :as data-readers])
   (:import (clojure.lang PersistentHashSet IMeta
                          RT Symbol Reflector Var IObj
                          PersistentVector IRecord Namespace)
@@ -859,7 +859,7 @@
    ***WARNING***
    This setting implies that the full power of the reader is in play,
    including syntax that can cause code to execute. It should never be
-   used with untrusted sources. See also: clojure.tools.reader.edn/read.
+   used with untrusted sources. See also: chatty.clojure.reader.edn/read.
 
    When set to logical false in the thread-local binding,
    the eval reader (#=) and *record/type literal syntax* are disabled in read/load.
@@ -874,7 +874,7 @@
 (def ^:dynamic *data-readers*
   "Map from reader tag symbols to data reader Vars.
    Reader tags without namespace qualifiers are reserved for Clojure.
-   Default reader tags are defined in clojure.tools.reader/default-data-readers
+   Default reader tags are defined in chatty.clojure.reader/default-data-readers
    and may be overridden by binding this Var."
   {})
 
@@ -954,10 +954,10 @@
    Note that read can execute code (controlled by *read-eval*),
    and as such should be used only with trusted sources.
 
-   To read data structures only, use clojure.tools.reader.edn/read
+   To read data structures only, use chatty.clojure.reader.edn/read
 
-   Note that the function signature of clojure.tools.reader/read and
-   clojure.tools.reader.edn/read is not the same for eof-handling"
+   Note that the function signature of chatty.clojure.reader/read and
+   chatty.clojure.reader.edn/read is not the same for eof-handling"
   {:arglists '([] [reader] [opts reader] [reader eof-error? eof-value])}
   ([] (read *in* true nil))
   ([reader] (read reader true nil))
@@ -972,10 +972,10 @@
    Note that read-string can execute code (controlled by *read-eval*),
    and as such should be used only with trusted sources.
 
-   To read data structures only, use clojure.tools.reader.edn/read-string
+   To read data structures only, use chatty.clojure.reader.edn/read-string
 
-   Note that the function signature of clojure.tools.reader/read-string and
-   clojure.tools.reader.edn/read-string is not the same for eof-handling"
+   Note that the function signature of chatty.clojure.reader/read-string and
+   chatty.clojure.reader.edn/read-string is not the same for eof-handling"
   ([s]
      (read-string {} s))
   ([opts s]

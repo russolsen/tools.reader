@@ -8,7 +8,7 @@
 
 (ns ^{:doc "Simple value inspector."
       :author "Russ Olsen"}
-  clojure.tools.reader.inspect)
+  chatty.clojure.reader.inspect)
 
 (declare inspect*)
 
